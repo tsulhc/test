@@ -54,6 +54,25 @@ export type DashboardData = {
   services: ServiceStats[];
 };
 
+export type SerializedProviderChainStats = Omit<ProviderChainStats, "revenueUpokt"> & {
+  revenueUpokt: string;
+};
+
+export type SerializedProviderStats = Omit<ProviderStats, "revenueUpokt" | "chains"> & {
+  revenueUpokt: string;
+  chains: SerializedProviderChainStats[];
+};
+
+export type SerializedServiceStats = Omit<ServiceStats, "revenueUpokt"> & {
+  revenueUpokt: string;
+};
+
+export type SerializedDashboardData = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
+  totalRevenueUpokt: string;
+  providers: SerializedProviderStats[];
+  services: SerializedServiceStats[];
+};
+
 export type ServiceMap = Record<string, { name: string }>;
 
 export type SupplierDirectoryEntry = {

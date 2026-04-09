@@ -49,6 +49,76 @@ type CoinGeckoPriceResponse = {
   };
 };
 
+type PoktscanMetadataResponse = {
+  data?: {
+    status?: {
+      lastProcessedHeight?: number | null;
+      targetHeight?: number | null;
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+};
+
+type PoktscanDomainRewardsResponse = {
+  data?: {
+    status?: {
+      lastProcessedHeight?: number | null;
+      targetHeight?: number | null;
+    } | null;
+    rewards?: {
+      groupedAggregates?: Array<{
+        keys?: string[] | null;
+        sum?: {
+          grossRewards?: string | number | null;
+          relays?: string | number | null;
+        } | null;
+      }> | null;
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+};
+
+type PoktscanSuppliersResponse = {
+  data?: {
+    suppliers?: {
+      nodes?: Array<{
+        id: string;
+        ownerId: string;
+        operatorId: string;
+        serviceConfigs?: {
+          nodes?: Array<{
+            domains?: string[] | null;
+            endpoints?: Array<{ url?: string | null }> | null;
+          }> | null;
+        } | null;
+      } | null> | null;
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+};
+
+type PoktscanSupplierNode = {
+  id: string;
+  ownerId: string;
+  operatorId: string;
+  serviceConfigs?: {
+    nodes?: Array<{
+      domains?: string[] | null;
+      endpoints?: Array<{ url?: string | null }> | null;
+    } | null> | null;
+  } | null;
+};
+
+type ProviderAggregateRow = {
+  providerKey: string;
+  providerLabel: string;
+  providerDomain: string;
+  serviceId: string;
+  serviceName: string;
+  relays: number;
+  revenueUpokt: bigint;
+};
+
 type ServicesResponse = {
   service?: Array<{
     id: string;
@@ -100,6 +170,7 @@ const DEFAULT_RPC_URLS = [
 
 const DEFAULT_RPC_URL = process.env.POCKET_RPC_URL ?? DEFAULT_RPC_URLS[0];
 const DEFAULT_REST_URL = process.env.POCKET_REST_URL ?? "https://sauron-api.infra.pocket.network";
+const DEFAULT_POKTSCAN_URL = process.env.POKTSCAN_API_URL ?? "https://api.poktscan.com/";
 const RPC_URLS = Array.from(
   new Set(
     (process.env.POCKET_RPC_URLS ?? "")
@@ -199,6 +270,29 @@ async function fetchJson<T>(url: string): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+async function fetchPoktscan<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const response = await fetch(DEFAULT_POKTSCAN_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json"
+    },
+    cache: "no-store",
+    body: JSON.stringify({ query, variables })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed for ${DEFAULT_POKTSCAN_URL}: ${response.status} ${response.statusText}`);
+  }
+
+  const payload = (await response.json()) as { errors?: Array<{ message: string }> } & T;
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((error) => error.message).join("; "));
+  }
+
+  return payload;
 }
 
 async function getPoktPriceUsd(): Promise<number> {
@@ -401,6 +495,10 @@ function toTitleCase(input: string): string {
     .join(" ");
 }
 
+function getProviderLabel(providerKey: string): string {
+  return PROVIDER_DOMAIN_LABEL_OVERRIDES[providerKey] ?? toTitleCase(providerKey.split(".")[0] ?? providerKey);
+}
+
 function getHostname(url: string): string | null {
   const normalized = url.includes("://") ? url : `https://${url}`;
 
@@ -459,7 +557,7 @@ function deriveProviderIdentity(operatorAddress: string, ownerAddress: string, e
       operatorAddress,
       ownerAddress,
       providerKey: topDomain,
-      providerLabel: PROVIDER_DOMAIN_LABEL_OVERRIDES[topDomain] ?? toTitleCase(topDomain.split(".")[0] ?? topDomain),
+      providerLabel: getProviderLabel(topDomain),
       providerDomain: topDomain
     };
   }
@@ -471,6 +569,38 @@ function deriveProviderIdentity(operatorAddress: string, ownerAddress: string, e
     providerLabel: `Owner ${ownerAddress.slice(0, 8)}`,
     providerDomain: ownerAddress
   };
+}
+
+function getWindowStart(window: TimeWindow): Date {
+  const now = Date.now();
+
+  switch (window) {
+    case "24h":
+      return new Date(now - 24 * 60 * 60 * 1000);
+    case "7d":
+      return new Date(now - 7 * 24 * 60 * 60 * 1000);
+    case "30d":
+      return new Date(now - 30 * 24 * 60 * 60 * 1000);
+  }
+}
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseNumeric(value: string | number | null | undefined): number {
+  if (value == null) return 0;
+  return Number(value);
+}
+
+function parseNumericBigInt(value: string | number | null | undefined): bigint {
+  if (value == null) return 0n;
+  if (typeof value === "number") {
+    return BigInt(Math.trunc(value));
+  }
+
+  const normalized = value.includes(".") ? value.split(".")[0] ?? "0" : value;
+  return BigInt(normalized || "0");
 }
 
 async function getStatus(): Promise<{ latestHeight: number }> {
@@ -543,6 +673,67 @@ const getSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
   return directory;
 });
 
+const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
+  const directory: SupplierDirectory = {};
+  let offset = 0;
+
+  while (true) {
+    const response = await fetchPoktscan<PoktscanSuppliersResponse>(
+      `query PoktscanSuppliers($offset: Int!) {
+        suppliers(first: 200, offset: $offset) {
+          nodes {
+            id
+            ownerId
+            operatorId
+            serviceConfigs(first: 100) {
+              nodes {
+                domains
+                endpoints
+              }
+            }
+          }
+        }
+      }`,
+      { offset }
+    );
+
+    const nodes = response.data?.suppliers?.nodes ?? [];
+    if (nodes.length === 0) {
+      break;
+    }
+
+    for (const supplier of nodes) {
+      if (!supplier) continue;
+
+      const domains = (supplier.serviceConfigs?.nodes ?? []).flatMap((config) => config?.domains ?? []);
+      const endpointUrls = (supplier.serviceConfigs?.nodes ?? []).flatMap((config) =>
+        (config?.endpoints ?? []).flatMap((endpoint) => (endpoint?.url ? [endpoint.url] : []))
+      );
+      const uniqueDomains = Array.from(
+        new Set(domains.filter((domain): domain is string => Boolean(domain)).map((domain) => domain.toLowerCase()))
+      );
+
+      if (uniqueDomains.length > 0) {
+        const providerKey = uniqueDomains[0];
+        directory[supplier.operatorId] = {
+          operatorAddress: supplier.operatorId,
+          ownerAddress: supplier.ownerId,
+          providerKey,
+          providerLabel: getProviderLabel(providerKey),
+          providerDomain: providerKey
+        };
+        continue;
+      }
+
+      directory[supplier.operatorId] = deriveProviderIdentity(supplier.operatorId, supplier.ownerId, endpointUrls);
+    }
+
+    offset += nodes.length;
+  }
+
+  return directory;
+});
+
 async function getFinalizeEvents(height: number): Promise<RpcEvent[]> {
   return extractFinalizeBlockEventsFromRpcPool(`/block_results?height=${height}`, height);
 }
@@ -602,6 +793,125 @@ function parseSettlementEvent(event: RpcEvent, blockHeight: number, blockTime: s
     supplierOwnerAddress: normalizeAttributeValue(attributes.supplier_owner_address),
     numRelays: parseInteger(attributes.num_relays),
     supplierRevenueUpokt
+  };
+}
+
+function buildDashboardFromProviderRows(
+  window: TimeWindow,
+  latestHeight: number,
+  rows: ProviderAggregateRow[],
+  supplierDirectory: SupplierDirectory,
+  poktPriceUsd: number,
+  options?: {
+    dataSource?: "poktscan" | "rpc";
+    indexerProcessedHeight?: number;
+    indexerTargetHeight?: number;
+    earliestSettlementTime?: string | null;
+    latestSettlementTime?: string | null;
+  }
+): DashboardData {
+  const providerMap = new Map<string, ProviderStats>();
+  const serviceMap = new Map<string, ServiceStats>();
+  let totalRelays = 0;
+  let totalRevenueUpokt = 0n;
+
+  for (const row of rows) {
+    totalRelays += row.relays;
+    totalRevenueUpokt += row.revenueUpokt;
+
+    const provider = providerMap.get(row.providerKey) ?? {
+      providerKey: row.providerKey,
+      providerLabel: row.providerLabel,
+      providerDomain: row.providerDomain,
+      relays: 0,
+      revenueUpokt: 0n,
+      chainCount: 0,
+      supplierCount: 0,
+      suppliers: [],
+      chains: []
+    };
+
+    provider.relays += row.relays;
+    provider.revenueUpokt += row.revenueUpokt;
+
+    let chain = provider.chains.find((entry) => entry.serviceId === row.serviceId);
+    if (!chain) {
+      chain = {
+        serviceId: row.serviceId,
+        serviceName: row.serviceName,
+        relays: 0,
+        revenueUpokt: 0n
+      };
+      provider.chains.push(chain);
+    }
+
+    chain.relays += row.relays;
+    chain.revenueUpokt += row.revenueUpokt;
+    provider.chainCount = provider.chains.length;
+    providerMap.set(row.providerKey, provider);
+
+    const service = serviceMap.get(row.serviceId) ?? {
+      serviceId: row.serviceId,
+      serviceName: row.serviceName,
+      relays: 0,
+      revenueUpokt: 0n,
+      providerCount: 0
+    };
+
+    service.relays += row.relays;
+    service.revenueUpokt += row.revenueUpokt;
+    serviceMap.set(row.serviceId, service);
+  }
+
+  for (const supplier of Object.values(supplierDirectory)) {
+    const provider = providerMap.get(supplier.providerKey);
+    if (!provider) continue;
+
+    provider.suppliers.push({
+      operatorAddress: supplier.operatorAddress,
+      ownerAddress: supplier.ownerAddress,
+      domain: supplier.providerDomain
+    });
+    provider.supplierCount = provider.suppliers.length;
+  }
+
+  const providers = Array.from(providerMap.values())
+    .map((provider) => ({
+      ...provider,
+      suppliers: provider.suppliers.sort((a, b) => a.operatorAddress.localeCompare(b.operatorAddress)),
+      chains: provider.chains.sort((a, b) =>
+        b.revenueUpokt === a.revenueUpokt ? b.relays - a.relays : b.revenueUpokt > a.revenueUpokt ? 1 : -1
+      )
+    }))
+    .sort((a, b) => (b.revenueUpokt === a.revenueUpokt ? b.relays - a.relays : b.revenueUpokt > a.revenueUpokt ? 1 : -1));
+
+  for (const service of serviceMap.values()) {
+    service.providerCount = providers.filter((provider) => provider.chains.some((chain) => chain.serviceId === service.serviceId)).length;
+  }
+
+  const services = Array.from(serviceMap.values()).sort((a, b) =>
+    b.revenueUpokt === a.revenueUpokt ? b.relays - a.relays : b.revenueUpokt > a.revenueUpokt ? 1 : -1
+  );
+
+  return {
+    window,
+    generatedAt: new Date().toISOString(),
+    dataSource: options?.dataSource ?? "rpc",
+    poktPriceUsd,
+    latestHeight,
+    indexerProcessedHeight: options?.indexerProcessedHeight,
+    indexerTargetHeight: options?.indexerTargetHeight,
+    scannedHeights: 0,
+    scannedSettlementHeights: 0,
+    settlementEvents: 0,
+    earliestSettlementTime: options?.earliestSettlementTime ?? null,
+    latestSettlementTime: options?.latestSettlementTime ?? null,
+    totalRelays,
+    totalRevenueUpokt,
+    activeProviders: providers.length,
+    activeChains: services.length,
+    providers,
+    services
   };
 }
 
@@ -704,6 +1014,7 @@ function buildDashboard(
   return {
     window,
     generatedAt: new Date().toISOString(),
+    dataSource: "rpc",
     poktPriceUsd,
     latestHeight,
     scannedHeights: 0,
@@ -720,7 +1031,75 @@ function buildDashboard(
   };
 }
 
-async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
+async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardData> {
+  if (window === "24h") {
+    throw new Error("Poktscan daily aggregates are not precise enough for 24h");
+  }
+
+  const start = getWindowStart(window);
+  const end = new Date();
+  const [serviceMap, supplierDirectory, poktPriceUsd, rewardsResponse] = await Promise.all([
+    getServiceMap(),
+    getPoktscanSupplierDirectory(),
+    getPoktPriceUsd(),
+    fetchPoktscan<PoktscanDomainRewardsResponse>(
+      `query PoktscanDomainRewards($start: Date!, $end: Date!) {
+        status: _metadata {
+          lastProcessedHeight
+          targetHeight
+        }
+        rewards: domainServiceDailyRewards(
+          filter: {
+            day: {
+              greaterThanOrEqualTo: $start
+              lessThanOrEqualTo: $end
+            }
+          }
+        ) {
+          groupedAggregates(groupBy: [DOMAIN, SERVICE_ID]) {
+            keys
+            sum {
+              grossRewards
+              relays
+            }
+          }
+        }
+      }`,
+      {
+        start: toIsoDate(start),
+        end: toIsoDate(end)
+      }
+    )
+  ]);
+
+  const rows: ProviderAggregateRow[] = [];
+  for (const aggregate of rewardsResponse.data?.rewards?.groupedAggregates ?? []) {
+    const providerDomain = aggregate.keys?.[0];
+    const serviceId = aggregate.keys?.[1];
+    if (!providerDomain || !serviceId) continue;
+
+    rows.push({
+      providerKey: providerDomain,
+      providerLabel: getProviderLabel(providerDomain),
+      providerDomain,
+      serviceId,
+      serviceName: serviceMap[serviceId]?.name ?? serviceId,
+      relays: parseNumeric(aggregate.sum?.relays),
+      revenueUpokt: parseNumericBigInt(aggregate.sum?.grossRewards)
+    });
+  }
+
+  const latestHeight = rewardsResponse.data?.status?.targetHeight ?? rewardsResponse.data?.status?.lastProcessedHeight ?? 0;
+  return buildDashboardFromProviderRows(window, latestHeight, rows, supplierDirectory, poktPriceUsd, {
+    dataSource: "poktscan",
+    indexerProcessedHeight: rewardsResponse.data?.status?.lastProcessedHeight ?? undefined,
+    indexerTargetHeight: rewardsResponse.data?.status?.targetHeight ?? undefined,
+    earliestSettlementTime: start.toISOString(),
+    latestSettlementTime: end.toISOString()
+  });
+}
+
+async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> {
   const cached = dashboardCache.get(window);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
@@ -790,6 +1169,24 @@ async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
   });
 
   return finalized;
+}
+
+async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
+  const cached = dashboardCache.get(window);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  try {
+    const dashboard = await loadDashboardFromPoktscan(window);
+    dashboardCache.set(window, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      data: dashboard
+    });
+    return dashboard;
+  } catch {
+    return loadDashboardFromRpc(window);
+  }
 }
 
 export const getDashboardData = cache(loadDashboard);

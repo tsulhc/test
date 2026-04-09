@@ -36,8 +36,11 @@ export type ServiceStats = {
 export type DashboardData = {
   window: TimeWindow;
   generatedAt: string;
+  dataSource: "poktscan" | "rpc";
   poktPriceUsd: number;
   latestHeight: number;
+  indexerProcessedHeight?: number;
+  indexerTargetHeight?: number;
   scannedHeights: number;
   scannedSettlementHeights: number;
   settlementEvents: number;

@@ -210,6 +210,10 @@ export default async function Home({ searchParams }: PageProps) {
   const totalRevenueUsd = toUsdFromUpokt(data.totalRevenueUpokt, data.poktPriceUsd);
   const averageRevenuePerProviderUsd = averageRevenuePerProvider * data.poktPriceUsd;
   const revenuePerThousandRelaysUsd = revenuePerThousandRelays * data.poktPriceUsd;
+  const indexerLag =
+    data.indexerTargetHeight != null && data.indexerProcessedHeight != null
+      ? Math.max(0, data.indexerTargetHeight - data.indexerProcessedHeight)
+      : null;
 
   return (
     <main className="page">
@@ -271,9 +275,19 @@ export default async function Home({ searchParams }: PageProps) {
             </div>
             <div className="insight-list">
               <div className="insight-row">
+                <span className="muted">Data source</span>
+                <strong>{data.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong>
+              </div>
+              <div className="insight-row">
                 <span className="muted">Latest chain height</span>
                 <strong>{formatInteger(data.latestHeight)}</strong>
               </div>
+              {indexerLag != null ? (
+                <div className="insight-row">
+                  <span className="muted">Indexer lag</span>
+                  <strong>{formatInteger(indexerLag)} block</strong>
+                </div>
+              ) : null}
               <div className="insight-row">
                 <span className="muted">Settlement block letti</span>
                 <strong>{formatInteger(data.scannedSettlementHeights)}</strong>

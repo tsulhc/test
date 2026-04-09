@@ -55,7 +55,7 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
         <div>
           <h2 className="section-title">Revenue calculator</h2>
           <p className="section-subtitle">
-            Assume 15 supplier gratuiti forniti da PNF e una prima copertura da 1 supplier per chain selezionata.
+            Assume Pocket Network Foundation covers the first 15 suppliers and model a simple one-supplier entry per selected chain.
           </p>
         </div>
         <span className="pill">PNF bootstrapped</span>
@@ -65,49 +65,49 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
         <div className="calculator-summary">
           <div className="calculator-kpis">
             <article className="calculator-kpi-card">
-              <span className="kpi-label">Revenue pool selezionato</span>
+              <span className="kpi-label">Selected revenue pool</span>
               <strong className="kpi-value calculator-kpi-value">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
-              <span className="kpi-foot">{formatUsd(toUsdFromUpokt(selectedRevenueUpokt, poktPriceUsd), 0)} nel campione</span>
+              <span className="kpi-foot">{formatUsd(toUsdFromUpokt(selectedRevenueUpokt, poktPriceUsd), 0)} across the selected window</span>
             </article>
 
             <article className="calculator-kpi-card calculator-kpi-card-accent">
-              <span className="kpi-label">Entry scenario prudente</span>
+              <span className="kpi-label">Conservative entry scenario</span>
               <strong className="kpi-value calculator-kpi-value">{formatUpokt(conservativeEntryUpokt, 1)}</strong>
               <span className="kpi-foot">
-                {formatUsd(toUsdFromUpokt(conservativeEntryUpokt, poktPriceUsd), 0)} se dividi il pool con i provider gia attivi
+                {formatUsd(toUsdFromUpokt(conservativeEntryUpokt, poktPriceUsd), 0)} if revenue is shared with the providers already active today
               </span>
             </article>
           </div>
 
           <div className="calculator-meta-grid">
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Chain selezionate</span>
+              <span className="hero-highlight-label">Selected chains</span>
               <strong>{formatInteger(selectedChainCount)}</strong>
-              <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} supplier PNF allocati nella stima.</p>
+              <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} PNF-covered suppliers included in the model.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Supplier gratuiti residui</span>
+              <span className="hero-highlight-label">Free suppliers remaining</span>
               <strong>{formatInteger(remainingFreeSuppliers)}</strong>
-              <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} oltre il bundle PNF.` : "Nessun supplier extra richiesto."}</p>
+              <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} beyond the PNF allocation.` : "No additional suppliers required."}</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Relay coperti</span>
+              <span className="hero-highlight-label">Relays covered</span>
               <strong>{formatCompactNumber(selectedRelays)}</strong>
-              <p>{formatInteger(selectedRelays)} relay sulle chain incluse.</p>
+              <p>{formatInteger(selectedRelays)} relays across the included chains.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Revenue / supplier gratuito</span>
+              <span className="hero-highlight-label">Revenue per free supplier</span>
               <strong>{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
-              <p>{formatUsd(toUsdFromUpokt(entryPerSupplierUpokt, poktPriceUsd), 0)} per supplier incluso.</p>
+              <p>{formatUsd(toUsdFromUpokt(entryPerSupplierUpokt, poktPriceUsd), 0)} per supplier included in the allocation.</p>
             </div>
           </div>
 
           <p className="footer-note">
-            Formula: per ogni chain selezionata il calcolo usa la revenue osservata nel range corrente e una quota di ingresso
-            pari a <code>revenue / (provider attivi + 1)</code>. E una stima prudente, non un forecast contrattuale.
+            Methodology: for each selected chain, the model takes observed revenue in the current window and applies an
+            entry share of <code>revenue / (active providers + 1)</code>. This is a conservative planning model, not a contractual forecast.
           </p>
         </div>
 
@@ -116,10 +116,10 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
             <h3 className="section-title">Chain checklist</h3>
             <div className="calculator-actions">
               <button type="button" className="calculator-action" onClick={() => setSelectedIds(services.map((service) => service.serviceId))}>
-                Tutte
+                Select all
               </button>
               <button type="button" className="calculator-action" onClick={() => setSelectedIds([])}>
-                Nessuna
+                Clear all
               </button>
             </div>
           </div>
@@ -142,8 +142,8 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
                     </div>
                     <div className="calculator-item-meta">
                       <span>{formatUpokt(BigInt(service.revenueUpokt), 1)}</span>
-                      <span>{formatInteger(service.providerCount)} provider</span>
-                      <span>{formatCompactNumber(service.relays)} relay</span>
+                      <span>{formatInteger(service.providerCount)} providers</span>
+                      <span>{formatCompactNumber(service.relays)} relays</span>
                     </div>
                   </div>
                 </label>

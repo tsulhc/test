@@ -87,7 +87,7 @@ function DonutMeter({ value, label, detail }: { value: number; label: string; de
       <div
         className="donut-ring"
         style={{
-          background: `conic-gradient(from 220deg, #84f1bd 0deg, #5ea7ff ${degrees}deg, rgba(255,255,255,0.08) ${degrees}deg 360deg)`
+          background: `conic-gradient(from 220deg, #59f0b1 0deg, #14b8ff ${degrees}deg, rgba(255,255,255,0.08) ${degrees}deg 360deg)`
         }}
       >
         <div className="donut-inner">
@@ -221,11 +221,11 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <div className="panel hero-showcase">
           <div className="hero-main">
             <div className="hero-copy hero-copy-strong">
-              <span className="eyebrow">Pocket Provider Onboarding</span>
-              <h1>Quanto gira davvero il protocollo lato provider.</h1>
+              <span className="eyebrow">Pocket Network</span>
+              <h1>Provider economics for the unstoppable data network.</h1>
               <p>
-                Questa RC0 trasforma i settlement live di Pocket in una lettura immediata della redditivita: quanta
-                revenue e stata distribuita, dove si concentra, e quali chain mostrano spazio per nuovi provider.
+                A public view into provider-side revenue, relay volume, and service-level competition across Pocket Network.
+                Use it to understand where demand is concentrated and where new provider capacity may have room to grow.
               </p>
 
               <div className="window-tabs" aria-label="time windows">
@@ -246,21 +246,21 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
 
               <div className="hero-highlight-grid">
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Revenue lato provider</span>
+                  <span className="hero-highlight-label">Provider-side revenue</span>
                   <strong>{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
-                  <p>{formatUsd(totalRevenueUsd, 0)} nel range {formatRelativeRange(window)}.</p>
+                  <p>{formatUsd(totalRevenueUsd, 0)} across the {formatRelativeRange(window)}.</p>
                 </div>
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Revenue media / provider</span>
+                  <span className="hero-highlight-label">Average revenue per provider</span>
                   <strong>{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
-                  <p>{formatUsd(averageRevenuePerProviderUsd, 0)} per provider attivo nel campione.</p>
+                  <p>{formatUsd(averageRevenuePerProviderUsd, 0)} per active provider in the selected window.</p>
                 </div>
               </div>
             </div>
 
             <aside className="hero-side panel panel-inset">
               <div className="section-title-row compact-gap">
-                <h2 className="section-title">Leaderboard live</h2>
+                <h2 className="section-title">Live leaderboard</h2>
                 <span className="pill">{formatRelativeRange(window)}</span>
               </div>
               <HeroBars providers={data.providers} />
@@ -271,7 +271,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <div className="hero-support-grid">
           <article className="panel hero-meta">
             <div className="section-title-row compact-gap">
-              <h2 className="section-title">What to look at first</h2>
+              <h2 className="section-title">What to watch first</h2>
               <span className="pill">Runtime</span>
             </div>
             <div className="insight-list">
@@ -290,11 +290,11 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 </div>
               ) : null}
               <div className="insight-row">
-                <span className="muted">Settlement block letti</span>
+                <span className="muted">Settlement blocks scanned</span>
                 <strong>{formatInteger(data.scannedSettlementHeights)}</strong>
               </div>
               <div className="insight-row">
-                <span className="muted">EventClaimSettled aggregati</span>
+                <span className="muted">EventClaimSettled records</span>
                 <strong>{formatInteger(data.settlementEvents)}</strong>
               </div>
               <div className="insight-row">
@@ -306,31 +306,31 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 <strong>{formatUsd(data.poktPriceUsd, 4)}</strong>
               </div>
               <div className="insight-row">
-                <span className="muted">Top chain</span>
+                <span className="muted">Top service</span>
                 <strong>{topService ? topService.serviceName : "n/a"}</strong>
               </div>
               <div className="insight-row">
-                <span className="muted">Ultimo refresh</span>
-                <strong>{new Date(data.generatedAt).toLocaleString("it-IT")}</strong>
+                <span className="muted">Last refresh</span>
+                <strong>{new Date(data.generatedAt).toLocaleString("en-US")}</strong>
               </div>
             </div>
           </article>
 
-          <article className="panel narrative-card">
-            <span className="eyebrow eyebrow-ghost">Quick read</span>
-            <h2>Se entrassi oggi nel protocollo, questi sono i numeri da pesare.</h2>
+            <article className="panel narrative-card">
+              <span className="eyebrow eyebrow-ghost">Quick read</span>
+            <h2>If you were entering the market today, these are the numbers to benchmark first.</h2>
             <ul className="narrative-points">
               <li>
-                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> ogni 1.000 relay nel campione live.
+                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> per 1,000 relays in the current window.
               </li>
               <li>
-                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> per 1.000 relay al prezzo live di CoinGecko.
+                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> per 1,000 relays at the live CoinGecko price.
               </li>
               <li>
-                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> e la mediana per provider attivo.
+                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> is the median revenue per active provider.
               </li>
               <li>
-                <strong>{topService ? topService.serviceName : "n/a"}</strong> e il service che sta drenando piu revenue.
+                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the strongest service by provider-side revenue.
               </li>
             </ul>
           </article>
@@ -341,22 +341,22 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <article className="panel kpi kpi-primary">
           <span className="kpi-label">Provider-side revenue</span>
           <span className="kpi-value">{formatUpokt(toBigInt(data.totalRevenueUpokt))}</span>
-          <span className="kpi-foot">{formatUsd(totalRevenueUsd, 0)} al prezzo live di CoinGecko</span>
+          <span className="kpi-foot">{formatUsd(totalRevenueUsd, 0)} at the live CoinGecko price</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Relay eseguiti</span>
+          <span className="kpi-label">Relays served</span>
           <span className="kpi-value">{formatCompactNumber(data.totalRelays)}</span>
-          <span className="kpi-foot">{formatInteger(data.totalRelays)} relay nel campione live</span>
+          <span className="kpi-foot">{formatInteger(data.totalRelays)} relays in the selected window</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Revenue media / provider</span>
+          <span className="kpi-label">Average revenue per provider</span>
           <span className="kpi-value">{formatDecimal(averageRevenuePerProvider, 1)} POKT</span>
-          <span className="kpi-foot">{formatUsd(averageRevenuePerProviderUsd, 0)} per provider nel range</span>
+          <span className="kpi-foot">{formatUsd(averageRevenuePerProviderUsd, 0)} per provider across the period</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Revenue / 1k relay</span>
+          <span className="kpi-label">Revenue per 1k relays</span>
           <span className="kpi-value">{formatDecimal(revenuePerThousandRelays, 2)} POKT</span>
-          <span className="kpi-foot">{formatUsd(revenuePerThousandRelaysUsd, 2)} per 1.000 relay</span>
+          <span className="kpi-foot">{formatUsd(revenuePerThousandRelaysUsd, 2)} per 1,000 relays</span>
         </article>
       </section>
 
@@ -376,15 +376,15 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Revenue concentration</h2>
-              <p className="section-subtitle">Ti dice quanto il mercato e gia saturo o ancora contendibile.</p>
+              <p className="section-subtitle">See how concentrated the market is and how much room remains for new providers.</p>
             </div>
             <span className="pill">Competition view</span>
           </div>
 
           <div className="donut-grid">
-            <DonutMeter value={topProviderShare} label="Top provider" detail="Quota di revenue catturata dal primo provider-domain nel range selezionato." />
-            <DonutMeter value={top5ProviderShare} label="Top 5 provider" detail="Se il top 5 pesa troppo, il mercato e piu concentrato e l'onboarding e piu competitivo." />
-            <DonutMeter value={top5ServiceShare} label="Top 5 chain" detail="Misura quanto la domanda economica e concentrata su pochi service." />
+            <DonutMeter value={topProviderShare} label="Top provider" detail="Share of total provider-side revenue captured by the leading provider domain in the selected window." />
+            <DonutMeter value={top5ProviderShare} label="Top 5 providers" detail="Higher concentration means onboarding new providers is likely to be more competitive." />
+            <DonutMeter value={top5ServiceShare} label="Top 5 services" detail="Measures how much of the current revenue mix is driven by only a few services." />
           </div>
         </article>
 
@@ -392,7 +392,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Top provider revenue curve</h2>
-              <p className="section-subtitle">Barre comparative per capire subito chi sta gia monetizzando.</p>
+              <p className="section-subtitle">A fast visual ranking of which provider domains are monetizing the most right now.</p>
             </div>
             <span className="pill">Revenue ranking</span>
           </div>
@@ -404,12 +404,12 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
       <section className="panel section section-opportunity">
         <div className="section-title-row">
           <div>
-            <h2 className="section-title">Chain opportunity map</h2>
-            <p className="section-subtitle">
-              Evidenzia dove si concentra la revenue e quanta competizione c&apos;e gia per service.
-            </p>
-          </div>
-          <span className="pill">Onboarding focus</span>
+              <h2 className="section-title">Chain opportunity map</h2>
+              <p className="section-subtitle">
+              Highlights where provider-side revenue is concentrated and how crowded each service already is.
+              </p>
+            </div>
+            <span className="pill">Onboarding focus</span>
         </div>
 
         <OpportunityMap services={data.services} totalRevenue={data.totalRevenueUpokt} />
@@ -420,7 +420,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Market leaders</h2>
-              <p className="section-subtitle">I provider-domain da osservare per capire il benchmark economico del momento.</p>
+              <p className="section-subtitle">The provider domains setting the current benchmark for revenue and service coverage.</p>
             </div>
             <span className="pill">Top {Math.min(data.providers.length, 8)}</span>
           </div>
@@ -437,14 +437,14 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     </div>
                     <div className="right">
                       <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-                      <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relay</div>
+                      <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
                     </div>
                   </div>
                   <div className="provider-row-metrics">
-                    <span>{formatPercent(share, 1)} della revenue</span>
-                    <span>{formatInteger(provider.chainCount)} chain attive</span>
-                    <span>{formatInteger(provider.supplierCount)} supplier</span>
-                    <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT / chain</span>
+                    <span>{formatPercent(share, 1)} of network revenue</span>
+                    <span>{formatInteger(provider.chainCount)} active services</span>
+                    <span>{formatInteger(provider.supplierCount)} suppliers</span>
+                    <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT per service</span>
                   </div>
                 </div>
               );
@@ -456,7 +456,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Most attractive chains</h2>
-              <p className="section-subtitle">Revenue e densita provider per identificare service interessanti.</p>
+              <p className="section-subtitle">Provider-side revenue and provider density combined to surface the strongest service opportunities.</p>
             </div>
             <span className="pill">Top {Math.min(data.services.length, 8)}</span>
           </div>
@@ -473,14 +473,14 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     </div>
                     <div className="right">
                       <strong>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
-                      <div className="muted">{formatUsd(toUsdFromUpokt(service.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(service.relays)} relay</div>
-                    </div>
-                  </div>
-                  <div className="provider-row-metrics">
-                    <span>{formatInteger(service.providerCount)} provider attivi</span>
-                    <span>{formatDecimal(revenuePerProvider, 1)} POKT / provider</span>
-                  </div>
-                </div>
+                       <div className="muted">{formatUsd(toUsdFromUpokt(service.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(service.relays)} relays</div>
+                     </div>
+                   </div>
+                   <div className="provider-row-metrics">
+                     <span>{formatInteger(service.providerCount)} active providers</span>
+                     <span>{formatDecimal(revenuePerProvider, 1)} POKT per provider</span>
+                   </div>
+                 </div>
               );
             })}
           </div>
@@ -489,11 +489,11 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
 
       <section className="panel section section-detail">
         <div className="section-title-row">
-          <div>
-            <h2 className="section-title">Provider x Chain breakdown</h2>
-            <p className="section-subtitle">Dettaglio operativo per confrontare mix di chain e monetizzazione dei provider piu forti.</p>
+            <div>
+            <h2 className="section-title">Provider x service breakdown</h2>
+            <p className="section-subtitle">Operational detail for comparing service mix and monetization across the strongest provider domains.</p>
           </div>
-          <span className="pill">{Math.min(data.providers.length, 12)} provider mostrati</span>
+          <span className="pill">{Math.min(data.providers.length, 12)} providers shown</span>
         </div>
 
         <div className="provider-cards">
@@ -506,15 +506,15 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 </div>
                 <div className="right">
                   <strong>{formatUpokt(toBigInt(provider.revenueUpokt))}</strong>
-                  <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relay</div>
+                  <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
                 </div>
               </div>
 
               <div className="provider-stats provider-stats-strong">
-                <span>{formatInteger(provider.chainCount)} chain attive</span>
-                <span>{formatInteger(provider.supplierCount)} supplier</span>
-                <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT / chain</span>
-                <span>{formatDecimal(provider.relays / Math.max(provider.chainCount, 1), 0)} relay / chain</span>
+                <span>{formatInteger(provider.chainCount)} active services</span>
+                <span>{formatInteger(provider.supplierCount)} suppliers</span>
+                <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT per service</span>
+                <span>{formatDecimal(provider.relays / Math.max(provider.chainCount, 1), 0)} relays per service</span>
               </div>
 
               <div className="provider-stats provider-stats-strong">
@@ -523,7 +523,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     {truncateAddress(supplier.operatorAddress, 10, 6)}
                   </span>
                 ))}
-                {provider.supplierCount > 6 ? <span>+{provider.supplierCount - 6} altri supplier</span> : null}
+                {provider.supplierCount > 6 ? <span>+{provider.supplierCount - 6} more suppliers</span> : null}
               </div>
 
               <table className="mini-table">
@@ -553,11 +553,9 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         </div>
 
         <p className="footer-note">
-          RC0 live demo: nessun database, aggregazione in memoria con cache breve. Per restare usabile su RPC pubblici,
-          ogni finestra usa un campione recente di settlement block e salta automaticamente i <code>block_results</code>
-          troppo pesanti o lenti. I supplier vengono raggruppati per dominio ricavato dagli endpoint onchain, con
-          fallback su owner address quando il dominio non e disponibile. Questa UI e pensata per dare una lettura
-          immediata della redditivita, non ancora una contabilita completa storica come la futura RC1.
+          This public dashboard prioritizes fast provider-side market visibility. It uses short-lived caching, domain-level
+          supplier grouping, and resilient fallbacks so the experience remains responsive while Pocket Network continues
+          moving toward a fuller historical RC1 data product.
         </p>
       </section>
     </main>

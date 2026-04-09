@@ -1,19 +1,19 @@
 :root {
   color-scheme: dark;
-  --bg: #071019;
-  --bg-deep: #04080d;
-  --panel: rgba(9, 18, 28, 0.82);
-  --panel-strong: rgba(12, 25, 39, 0.95);
-  --panel-soft: rgba(255, 255, 255, 0.03);
-  --border: rgba(120, 183, 255, 0.14);
-  --text: #ecf4ff;
-  --muted: #8fa6c3;
-  --accent: #7ebdff;
-  --accent-strong: #4c9bff;
-  --green: #87f1bc;
+  --bg: #071116;
+  --bg-deep: #02070a;
+  --panel: rgba(8, 17, 22, 0.86);
+  --panel-strong: rgba(10, 20, 26, 0.96);
+  --panel-soft: rgba(255, 255, 255, 0.025);
+  --border: rgba(77, 215, 255, 0.14);
+  --text: #f5fbff;
+  --muted: #93a9b7;
+  --accent: #54d7ff;
+  --accent-strong: #14b8ff;
+  --green: #59f0b1;
   --orange: #ffbf74;
   --red: #ff8f8f;
-  --shadow: 0 30px 100px rgba(0, 0, 0, 0.4);
+  --shadow: 0 30px 100px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -22,9 +22,9 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(57, 118, 193, 0.25) 0%, transparent 32%),
-    radial-gradient(circle at top right, rgba(68, 199, 157, 0.14) 0%, transparent 30%),
-    linear-gradient(180deg, #0c1826 0%, #071019 45%, #04080d 100%);
+    radial-gradient(circle at top left, rgba(20, 184, 255, 0.2) 0%, transparent 34%),
+    radial-gradient(circle at top right, rgba(89, 240, 177, 0.12) 0%, transparent 30%),
+    linear-gradient(180deg, #0c171d 0%, #071116 42%, #02070a 100%);
 }
 
 body {
@@ -77,7 +77,7 @@ code {
 }
 
 .panel-inset {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .eyebrow {
@@ -90,7 +90,7 @@ code {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: rgba(120, 183, 255, 0.08);
+  background: rgba(84, 215, 255, 0.08);
 }
 
 .eyebrow-ghost {
@@ -142,14 +142,15 @@ code {
   padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(120, 183, 255, 0.06);
+  background: rgba(84, 215, 255, 0.06);
   color: var(--muted);
   font-weight: 600;
+  cursor: pointer;
 }
 
 .window-tab.active {
-  color: #04111d;
-  background: linear-gradient(135deg, #9bc8ff 0%, #5ea7ff 100%);
+  color: #031118;
+  background: linear-gradient(135deg, #8af4ff 0%, #47d4ff 52%, #65f0bf 100%);
   border-color: transparent;
 }
 
@@ -164,7 +165,7 @@ code {
   padding: 18px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: linear-gradient(180deg, rgba(84, 215, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
 }
 
 .hero-highlight strong {
@@ -254,15 +255,15 @@ code {
 .opportunity-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #7cf0bd 0%, #5ea7ff 100%);
+  background: linear-gradient(90deg, #59f0b1 0%, #54d7ff 100%);
 }
 
 .chart-fill {
-  background: linear-gradient(90deg, rgba(95, 167, 255, 0.85) 0%, rgba(132, 241, 189, 0.95) 100%);
+  background: linear-gradient(90deg, rgba(20, 184, 255, 0.88) 0%, rgba(89, 240, 177, 0.96) 100%);
 }
 
 .opportunity-fill {
-  background: linear-gradient(90deg, #ffbf74 0%, #5ea7ff 100%);
+  background: linear-gradient(90deg, #65f0bf 0%, #14b8ff 100%);
 }
 
 .hero-support-grid,
@@ -334,7 +335,7 @@ code {
 }
 
 .kpi-primary {
-  background: linear-gradient(180deg, rgba(87, 155, 255, 0.16) 0%, rgba(10, 22, 34, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(20, 184, 255, 0.16) 0%, rgba(10, 20, 26, 0.92) 100%);
 }
 
 .kpi-label {
@@ -425,7 +426,7 @@ code {
   width: fit-content;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(134, 241, 187, 0.08);
+  background: rgba(89, 240, 177, 0.08);
   color: var(--green);
   font-size: 12px;
 }
@@ -522,7 +523,7 @@ code {
 }
 
 .calculator-kpi-card-accent {
-  background: linear-gradient(180deg, rgba(126, 189, 255, 0.12) 0%, rgba(255, 255, 255, 0.025) 100%);
+  background: linear-gradient(180deg, rgba(20, 184, 255, 0.12) 0%, rgba(255, 255, 255, 0.025) 100%);
 }
 
 .calculator-kpi-value {
@@ -556,7 +557,7 @@ code {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text);
-  background: rgba(120, 183, 255, 0.08);
+  background: rgba(84, 215, 255, 0.08);
   cursor: pointer;
 }
 
@@ -578,8 +579,8 @@ code {
 }
 
 .calculator-item.is-checked {
-  border-color: rgba(126, 189, 255, 0.45);
-  background: linear-gradient(180deg, rgba(126, 189, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border-color: rgba(84, 215, 255, 0.45);
+  background: linear-gradient(180deg, rgba(84, 215, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
 }
 
 .calculator-item-copy,

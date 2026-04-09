@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "Pocket Dashboard RC0",
-  description: "Demo live senza database per analizzare relay e revenue dei provider Pocket Network"
+  title: "Pocket Network Provider Dashboard",
+  description: "Public provider-side revenue and relay intelligence for Pocket Network."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="it">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

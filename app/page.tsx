@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import RevenueCalculator from "@/app/revenue-calculator";
 import {
   formatCompactNumber,
   formatDecimal,
@@ -358,6 +359,17 @@ export default async function Home({ searchParams }: PageProps) {
           <span className="kpi-foot">{formatUsd(revenuePerThousandRelaysUsd, 2)} per 1.000 relay</span>
         </article>
       </section>
+
+      <RevenueCalculator
+        poktPriceUsd={data.poktPriceUsd}
+        services={data.services.map((service) => ({
+          serviceId: service.serviceId,
+          serviceName: service.serviceName,
+          relays: service.relays,
+          revenueUpokt: service.revenueUpokt.toString(),
+          providerCount: service.providerCount
+        }))}
+      />
 
       <section className="section-grid section-grid-visual">
         <article className="panel section section-visual">

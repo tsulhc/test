@@ -166,23 +166,23 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
                 <div className="muted mono">{service.serviceId}</div>
               </div>
               <span className={`density density-${density}`}>
-                {service.providerCount} provider
+                {service.providerCount} {service.providerCount === 1 ? "provider" : "providers"}
               </span>
             </div>
             <div className="opportunity-metric-row">
-              <span className="muted">Revenue totale</span>
+              <span className="muted">Total revenue</span>
               <strong>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
             </div>
             <div className="opportunity-metric-row">
-              <span className="muted">Revenue / provider attivo</span>
+              <span className="muted">Revenue per active provider</span>
               <strong>{formatDecimal(perProvider, 1)} POKT</strong>
             </div>
             <div className="opportunity-track">
               <div className="opportunity-fill" style={{ width: `${width}%` }} />
             </div>
             <div className="opportunity-foot">
-              <span>{formatInteger(service.relays)} relay</span>
-              <span>{formatPercent(share, 1)} della revenue totale</span>
+              <span>{formatInteger(service.relays)} relays</span>
+              <span>{formatPercent(share, 1)} of total revenue</span>
             </div>
           </div>
         );

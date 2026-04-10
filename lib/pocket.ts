@@ -78,6 +78,25 @@ type PoktscanDomainRewardsResponse = {
   errors?: Array<{ message: string }>;
 };
 
+type PoktscanClaimSettledAggregatesResponse = {
+  data?: {
+    status?: {
+      lastProcessedHeight?: number | null;
+      targetHeight?: number | null;
+    } | null;
+    claims?: {
+      groupedAggregates?: Array<{
+        keys?: string[] | null;
+        sum?: {
+          claimedAmount?: string | number | null;
+          numRelays?: string | number | null;
+        } | null;
+      }> | null;
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+};
+
 type PoktscanSuppliersResponse = {
   data?: {
     suppliers?: {
@@ -1153,7 +1172,75 @@ function buildDashboard(
 
 async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardData> {
   if (window === "24h") {
-    throw new Error("Poktscan daily aggregates are not precise enough for 24h");
+    const start = getWindowStart(window);
+    const end = new Date();
+    const [serviceMap, supplierDirectory, poktPriceUsd, claimsResponse] = await Promise.all([
+      getServiceMap(),
+      getPoktscanSupplierDirectory(),
+      getPoktPriceUsd(),
+      fetchPoktscan<PoktscanClaimSettledAggregatesResponse>(
+        `query Poktscan24hClaims($start: Datetime!) {
+          status: _metadata {
+            lastProcessedHeight
+            targetHeight
+          }
+          claims: eventClaimSettleds(
+            filter: {
+              block: {
+                timestamp: {
+                  greaterThanOrEqualTo: $start
+                }
+              }
+            }
+          ) {
+            groupedAggregates(groupBy: [SUPPLIER_ID, SERVICE_ID]) {
+              keys
+              sum {
+                claimedAmount
+                numRelays
+              }
+            }
+          }
+        }`,
+        {
+          start: start.toISOString()
+        }
+      )
+    ]);
+
+    const rows: ProviderAggregateRow[] = [];
+    for (const aggregate of claimsResponse.data?.claims?.groupedAggregates ?? []) {
+      const supplierId = aggregate.keys?.[0];
+      const serviceId = aggregate.keys?.[1];
+      if (!supplierId || !serviceId) continue;
+
+      const supplier = supplierDirectory[supplierId] ?? {
+        operatorAddress: supplierId,
+        ownerAddress: supplierId,
+        providerKey: `owner:${supplierId}`,
+        providerLabel: `Owner ${supplierId.slice(0, 8)}`,
+        providerDomain: supplierId
+      };
+
+      rows.push({
+        providerKey: supplier.providerKey,
+        providerLabel: supplier.providerLabel,
+        providerDomain: supplier.providerDomain,
+        serviceId,
+        serviceName: serviceMap[serviceId]?.name ?? serviceId,
+        relays: parseNumeric(aggregate.sum?.numRelays),
+        revenueUpokt: parseNumericBigInt(aggregate.sum?.claimedAmount)
+      });
+    }
+
+    const latestHeight = claimsResponse.data?.status?.targetHeight ?? claimsResponse.data?.status?.lastProcessedHeight ?? 0;
+    return buildDashboardFromProviderRows(window, latestHeight, rows, supplierDirectory, poktPriceUsd, {
+      dataSource: "poktscan",
+      indexerProcessedHeight: claimsResponse.data?.status?.lastProcessedHeight ?? undefined,
+      indexerTargetHeight: claimsResponse.data?.status?.targetHeight ?? undefined,
+      earliestSettlementTime: start.toISOString(),
+      latestSettlementTime: end.toISOString()
+    });
   }
 
   const start = getWindowStart(window);

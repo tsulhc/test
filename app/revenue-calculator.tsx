@@ -66,13 +66,13 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           <div className="calculator-kpis">
             <article className="calculator-kpi-card">
               <span className="kpi-label">Selected revenue pool</span>
-              <strong className="kpi-value calculator-kpi-value">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
+              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
               <span className="kpi-foot">{formatUsd(toUsdFromUpokt(selectedRevenueUpokt, poktPriceUsd), 0)} across the selected window</span>
             </article>
 
             <article className="calculator-kpi-card calculator-kpi-card-accent">
               <span className="kpi-label">Conservative entry scenario</span>
-              <strong className="kpi-value calculator-kpi-value">{formatUpokt(conservativeEntryUpokt, 1)}</strong>
+              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(conservativeEntryUpokt, 1)}</strong>
               <span className="kpi-foot">
                 {formatUsd(toUsdFromUpokt(conservativeEntryUpokt, poktPriceUsd), 0)} if revenue is shared with the providers already active today
               </span>
@@ -82,25 +82,25 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           <div className="calculator-meta-grid">
             <div className="calculator-meta-card">
               <span className="hero-highlight-label">Selected chains</span>
-              <strong>{formatInteger(selectedChainCount)}</strong>
+              <strong className="accent-number">{formatInteger(selectedChainCount)}</strong>
               <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} PNF-covered suppliers included in the model.</p>
             </div>
 
             <div className="calculator-meta-card">
               <span className="hero-highlight-label">Free suppliers remaining</span>
-              <strong>{formatInteger(remainingFreeSuppliers)}</strong>
+              <strong className="accent-number">{formatInteger(remainingFreeSuppliers)}</strong>
               <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} beyond the PNF allocation.` : "No additional suppliers required."}</p>
             </div>
 
             <div className="calculator-meta-card">
               <span className="hero-highlight-label">Relays covered</span>
-              <strong>{formatCompactNumber(selectedRelays)}</strong>
+              <strong className="accent-number">{formatCompactNumber(selectedRelays)}</strong>
               <p>{formatInteger(selectedRelays)} relays across the included chains.</p>
             </div>
 
             <div className="calculator-meta-card">
               <span className="hero-highlight-label">Revenue per free supplier</span>
-              <strong>{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
+              <strong className="accent-number">{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
               <p>{formatUsd(toUsdFromUpokt(entryPerSupplierUpokt, poktPriceUsd), 0)} per supplier included in the allocation.</p>
             </div>
           </div>

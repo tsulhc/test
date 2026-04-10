@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Kumbh_Sans, Young_Serif } from "next/font/google";
+import { Kumbh_Sans } from "next/font/google";
 
 import "@/app/globals.css";
 
@@ -9,12 +9,6 @@ const kumbhSans = Kumbh_Sans({
   variable: "--font-kumbh-sans"
 });
 
-const youngSerif = Young_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-young-serif"
-});
-
 export const metadata: Metadata = {
   title: "Pocket Network Provider Dashboard",
   description: "Public provider-side revenue and relay intelligence for Pocket Network."
@@ -22,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${kumbhSans.variable} ${youngSerif.variable}`}>
+    <html lang="en" className={`${kumbhSans.variable}`}>
       <body>{children}</body>
     </html>
   );

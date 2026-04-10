@@ -17,7 +17,7 @@
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   
   --font-main: var(--font-kumbh-sans), sans-serif;
-  --font-accent: var(--font-young-serif), serif;
+  --font-accent: var(--font-kumbh-sans), sans-serif;
 }
 
 * {
@@ -153,6 +153,8 @@ code {
 
 .accent-number {
   font-family: var(--font-accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 .hero-highlight-grid {
@@ -174,7 +176,8 @@ code {
   margin: 12px 0;
   font-family: var(--font-accent);
   font-size: clamp(1.8rem, 4vw, 3.2rem);
-  font-weight: 400;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-highlight-label {
@@ -358,7 +361,8 @@ code {
 .kpi-value {
   font-family: var(--font-accent);
   font-size: clamp(2rem, 4vw, 3.2rem);
-  font-weight: 400;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .kpi-foot {
@@ -399,7 +403,8 @@ code {
 .donut-inner strong {
   font-family: var(--font-accent);
   font-size: 2.2rem;
-  font-weight: 400;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .donut-inner span {
@@ -521,7 +526,8 @@ code {
 .calculator-kpi-value {
   font-family: var(--font-accent);
   font-size: clamp(1.8rem, 4vw, 2.8rem);
-  font-weight: 400;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .calculator-meta-grid {
@@ -533,7 +539,8 @@ code {
   margin: 8px 0;
   font-family: var(--font-accent);
   font-size: 1.75rem;
-  font-weight: 400;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .calculator-meta-card p {

@@ -240,7 +240,16 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+.provider-row-top > div,
+.service-row-top > div,
+.provider-card-top > div,
+.chart-row-head > div,
+.hero-bar-meta {
+  min-width: 0;
 }
 
 .compact-gap {
@@ -689,8 +698,13 @@ code {
   .opportunity-foot,
   .meta-row,
   .insight-row {
-    grid-flex-direction: column;
+    flex-direction: column;
     align-items: flex-start;
+  }
+
+  .right {
+    width: 100%;
+    text-align: left !important;
   }
 
   .mini-table {

@@ -249,10 +249,10 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
             <div className="hero-main">
               <div className="hero-copy hero-copy-strong">
                 <span className="eyebrow">Pocket Network</span>
-                <h1>Provider economics for the unstoppable data network.</h1>
+                <h1>Fuel the Unstoppable. Become a Pocket Provider.</h1>
                 <p>
-                  The dashboard is warming its first dataset. Cached snapshots will appear here automatically as soon as
-                  the initial background refresh completes.
+                  Real-time market intelligence to guide your infrastructure journey. Analyze revenue trends, relay
+                  demand, and competitive landscapes to identify where your node capacity can make the most impact.
                 </p>
 
                 <div className="window-tabs" aria-label="time windows">
@@ -275,7 +275,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
               <aside className="hero-side panel panel-inset">
                 <div className="section-title-row compact-gap">
                   <h2 className="section-title">Status</h2>
-                  <span className="pill">Warming</span>
+                  <span className="pill">Calibrating market data</span>
                 </div>
                 <div className="insight-list">
                   <div className="insight-row">
@@ -324,10 +324,10 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <div className="hero-main">
             <div className="hero-copy hero-copy-strong">
               <span className="eyebrow">Pocket Network</span>
-              <h1>Provider economics for the unstoppable data network.</h1>
+              <h1>Fuel the Unstoppable. Become a Pocket Provider.</h1>
               <p>
-                A public view into provider-side revenue, relay volume, and service-level competition across Pocket Network.
-                Use it to understand where demand is concentrated and where new provider capacity may have room to grow.
+                Real-time market intelligence to guide your infrastructure journey. Analyze revenue trends, relay
+                demand, and competitive landscapes to identify where your node capacity can make the most impact.
               </p>
 
               <div className="window-tabs" aria-label="time windows">
@@ -348,21 +348,21 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
 
               <div className="hero-highlight-grid">
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Provider-side revenue</span>
+                  <span className="hero-highlight-label">Network Revenue Pool</span>
                   <strong className="accent-number">{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
-                  <p>{formatUsd(totalRevenueUsd, 0)} across the {formatRelativeRange(window)}.</p>
+                  <p>Aggregated provider-side revenue across {formatRelativeRange(window)}.</p>
                 </div>
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Average revenue per provider</span>
+                  <span className="hero-highlight-label">Benchmark Revenue</span>
                   <strong className="accent-number">{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
-                  <p>{formatUsd(averageRevenuePerProviderUsd, 0)} per active provider in the selected window.</p>
+                  <p>The average revenue target per active provider domain.</p>
                 </div>
               </div>
             </div>
 
             <aside className="hero-side panel panel-inset">
               <div className="section-title-row compact-gap">
-                <h2 className="section-title">Live leaderboard</h2>
+                <h2 className="section-title">Market Leaders</h2>
                   <span className="pill">{formatRelativeRange(window)}</span>
               </div>
               <HeroBars providers={data.providers} />
@@ -373,7 +373,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <div className="hero-support-grid">
           <article className="panel hero-meta">
             <div className="section-title-row compact-gap">
-              <h2 className="section-title">What to watch first</h2>
+              <h2 className="section-title">Network Integrity</h2>
               <span className="pill">Runtime</span>
             </div>
             <div className="insight-list">
@@ -426,19 +426,19 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
 
             <article className="panel narrative-card">
               <span className="eyebrow eyebrow-ghost">Quick read</span>
-            <h2>If you were entering the market today, these are the numbers to benchmark first.</h2>
+            <h2>Market Entry Benchmarks: Your Day-One Strategy.</h2>
             <ul className="narrative-points">
               <li>
-                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> per 1,000 relays in the current window.
+                <strong>Target {formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> per 1,000 relays as your baseline efficiency.
               </li>
               <li>
-                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> per 1,000 relays at the live CoinGecko price.
+                <strong>Estimated {formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> per 1,000 relays at current market rates.
               </li>
               <li>
-                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> is the median revenue per active provider.
+                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> is the median benchmark for active provider domains.
               </li>
               <li>
-                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the strongest service by provider-side revenue.
+                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the high-demand service to prioritize.
               </li>
             </ul>
           </article>
@@ -483,26 +483,26 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <article className="panel section section-visual">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Revenue concentration</h2>
-              <p className="section-subtitle">See how concentrated the market is and how much room remains for new providers.</p>
+              <h2 className="section-title">Market Dynamics</h2>
+              <p className="section-subtitle">A high-level view of revenue distribution across the provider ecosystem.</p>
             </div>
-            <span className="pill">Competition view</span>
+            <span className="pill">Competition</span>
           </div>
 
           <div className="donut-grid">
-            <DonutMeter value={topProviderShare} label="Top provider" detail="Share of total provider-side revenue captured by the leading provider domain in the selected window." />
-            <DonutMeter value={top5ProviderShare} label="Top 5 providers" detail="Higher concentration means onboarding new providers is likely to be more competitive." />
-            <DonutMeter value={top5ServiceShare} label="Top 5 services" detail="Measures how much of the current revenue mix is driven by only a few services." />
+            <DonutMeter value={topProviderShare} label="Top Performer" detail="Market share captured by the leading provider domain." />
+            <DonutMeter value={top5ProviderShare} label="Top 5 Focus" detail="Measures how much of the network revenue is held by the top 5 entities." />
+            <DonutMeter value={top5ServiceShare} label="High-Demand Mix" detail="The share of revenue driven by the top 5 services." />
           </div>
         </article>
 
         <article className="panel section section-visual">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Top provider revenue curve</h2>
-              <p className="section-subtitle">A fast visual ranking of which provider domains are monetizing the most right now.</p>
+              <h2 className="section-title">Revenue Distribution</h2>
+              <p className="section-subtitle">Visualizing monetization across the network's top provider domains.</p>
             </div>
-            <span className="pill">Revenue ranking</span>
+            <span className="pill">Leaderboard</span>
           </div>
 
           <ProviderRevenueChart providers={data.providers} totalRevenue={data.totalRevenueUpokt} poktPriceUsd={data.poktPriceUsd} />
@@ -512,12 +512,12 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
       <section className="panel section section-opportunity">
         <div className="section-title-row">
           <div>
-              <h2 className="section-title">Chain opportunity map</h2>
+              <h2 className="section-title">High-Growth Opportunities</h2>
               <p className="section-subtitle">
-              Highlights where provider-side revenue is concentrated and how crowded each service already is.
+                Target the most attractive services based on current revenue pool and provider density.
               </p>
             </div>
-            <span className="pill">Onboarding focus</span>
+            <span className="pill">Onboarding Focus</span>
         </div>
 
         <OpportunityMap services={data.services} totalRevenue={data.totalRevenueUpokt} />
@@ -527,8 +527,8 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Market leaders</h2>
-              <p className="section-subtitle">The provider domains setting the current benchmark for revenue and service coverage.</p>
+              <h2 className="section-title">Top Provider Domains</h2>
+              <p className="section-subtitle">Leading entities setting the benchmark for revenue and service coverage.</p>
             </div>
             <span className="pill">Top {Math.min(data.providers.length, 8)}</span>
           </div>
@@ -563,8 +563,8 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Most attractive chains</h2>
-              <p className="section-subtitle">Provider-side revenue and provider density combined to surface the strongest service opportunities.</p>
+              <h2 className="section-title">High-Demand Services</h2>
+              <p className="section-subtitle">Current services with the strongest revenue pools for active providers.</p>
             </div>
             <span className="pill">Top {Math.min(data.services.length, 8)}</span>
           </div>
@@ -598,8 +598,8 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
       <section className="panel section section-detail">
         <div className="section-title-row">
             <div>
-            <h2 className="section-title">Provider x service breakdown</h2>
-            <p className="section-subtitle">Operational detail for comparing service mix and monetization across the strongest provider domains.</p>
+            <h2 className="section-title">Infrastructure Deep Dive</h2>
+            <p className="section-subtitle">Granular operational detail to benchmark your setup against top network participants.</p>
           </div>
           <span className="pill">{Math.min(data.providers.length, 12)} providers shown</span>
         </div>

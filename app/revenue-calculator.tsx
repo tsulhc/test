@@ -53,61 +53,61 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
     <section className="panel section calculator-section">
       <div className="section-title-row calculator-title-row">
         <div>
-          <h2 className="section-title">Revenue calculator</h2>
+          <h2 className="section-title">Project Your Growth</h2>
           <p className="section-subtitle">
-            Assume Pocket Network Foundation covers the first 15 suppliers and model a simple one-supplier entry per selected chain.
+            Model your entry with PNF-bootstrapped incentives and calculate projected revenue based on current network demand.
           </p>
         </div>
-        <span className="pill">PNF bootstrapped</span>
+        <span className="pill">Startup Incentives</span>
       </div>
 
       <div className="calculator-layout">
         <div className="calculator-summary">
           <div className="calculator-kpis">
             <article className="calculator-kpi-card">
-              <span className="kpi-label">Selected revenue pool</span>
+              <span className="kpi-label">Addressable Revenue Pool</span>
               <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
-              <span className="kpi-foot">{formatUsd(toUsdFromUpokt(selectedRevenueUpokt, poktPriceUsd), 0)} across the selected window</span>
+              <span className="kpi-foot">Aggregated demand across selected chains</span>
             </article>
 
             <article className="calculator-kpi-card calculator-kpi-card-accent">
-              <span className="kpi-label">Conservative entry scenario</span>
+              <span className="kpi-label">Market Entry Projection</span>
               <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(conservativeEntryUpokt, 1)}</strong>
               <span className="kpi-foot">
-                {formatUsd(toUsdFromUpokt(conservativeEntryUpokt, poktPriceUsd), 0)} if revenue is shared with the providers already active today
+                Projected share based on current provider density
               </span>
             </article>
           </div>
 
           <div className="calculator-meta-grid">
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Selected chains</span>
+              <span className="hero-highlight-label">Target Chains</span>
               <strong className="accent-number">{formatInteger(selectedChainCount)}</strong>
-              <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} PNF-covered suppliers included in the model.</p>
+              <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} PNF-covered suppliers in your model.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Free suppliers remaining</span>
+              <span className="hero-highlight-label">Startup Allowance</span>
               <strong className="accent-number">{formatInteger(remainingFreeSuppliers)}</strong>
-              <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} beyond the PNF allocation.` : "No additional suppliers required."}</p>
+              <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} suppliers beyond the initial allocation.` : "No additional suppliers required."}</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Relays covered</span>
+              <span className="hero-highlight-label">Relay Demand</span>
               <strong className="accent-number">{formatCompactNumber(selectedRelays)}</strong>
-              <p>{formatInteger(selectedRelays)} relays across the included chains.</p>
+              <p>Aggregated relays across the included chains.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Revenue per free supplier</span>
+              <span className="hero-highlight-label">Efficiency Target</span>
               <strong className="accent-number">{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
-              <p>{formatUsd(toUsdFromUpokt(entryPerSupplierUpokt, poktPriceUsd), 0)} per supplier included in the allocation.</p>
+              <p>Projected revenue per supplier in your allocation.</p>
             </div>
           </div>
 
           <p className="footer-note">
-            Methodology: for each selected chain, the model takes observed revenue in the current window and applies an
-            entry share of <code>revenue / (active providers + 1)</code>. This is a conservative planning model, not a contractual forecast.
+            Methodology: This model estimates your entry share as <code>observed revenue / (active providers + 1)</code>. 
+            It assumes a baseline entry of one supplier per selected chain within the PNF-bootstrapped allocation.
           </p>
         </div>
 

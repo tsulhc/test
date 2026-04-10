@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardData } from "@/lib/pocket";
+import { getDashboardDataSafe } from "@/lib/pocket";
 import type { TimeWindow } from "@/lib/types";
 
 function isWindow(value: string | null): value is TimeWindow {
@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid window" }, { status: 400 });
   }
 
-  const data = await getDashboardData(window);
-  return NextResponse.json(serializeDashboardData(data));
+  const result = getDashboardDataSafe(window);
+  if (!result.data) {
+    return NextResponse.json({ status: result.status }, { status: 202 });
+  }
+
+  return NextResponse.json(serializeDashboardData(result.data));
 }

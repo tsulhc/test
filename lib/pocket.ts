@@ -1339,8 +1339,28 @@ export function getDashboardSnapshot(window: TimeWindow): DashboardData | null {
   return getCachedDashboardSnapshot(window);
 }
 
+export function getDashboardDataSafe(window: TimeWindow): { data: DashboardData | null; status: "ready" | "warming" } {
+  const snapshot = getCachedDashboardSnapshot(window);
+
+  if (snapshot) {
+    const cached = dashboardCache.get(window);
+    if (!cached || cached.expiresAt <= Date.now()) {
+      void refreshDashboard(window);
+    }
+
+    return { data: snapshot, status: "ready" };
+  }
+
+  void refreshDashboard(window).catch(() => {
+    // Cold-start refresh failures should not take down the request path.
+  });
+  return { data: null, status: "warming" };
+}
+
 export function primeDashboardRefresh(window: TimeWindow): void {
-  void refreshDashboard(window);
+  void refreshDashboard(window).catch(() => {
+    // Background refresh failures are surfaced through stale snapshots and warming states.
+  });
 }
 
 export const warmDashboardData = cache(async (window: TimeWindow): Promise<DashboardData> => loadDashboard(window));

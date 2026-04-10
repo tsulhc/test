@@ -1,6 +1,6 @@
 import DashboardView from "@/app/dashboard-view";
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardData, getDashboardSnapshot, primeDashboardRefresh } from "@/lib/pocket";
+import { getDashboardDataSafe, getDashboardSnapshot, primeDashboardRefresh } from "@/lib/pocket";
 import type { SerializedDashboardData, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
@@ -19,7 +19,8 @@ export default async function Home({ searchParams }: PageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const initialWindow = isWindow(resolvedSearchParams.window) ? resolvedSearchParams.window : "24h";
 
-  const initialData = serializeDashboardData(await getDashboardData(initialWindow));
+  const initialResult = getDashboardDataSafe(initialWindow);
+  const initialData = initialResult.data ? serializeDashboardData(initialResult.data) : null;
   const otherEntries = WINDOWS.filter((window) => window !== initialWindow).map((window) => {
     const snapshot = getDashboardSnapshot(window);
     primeDashboardRefresh(window);

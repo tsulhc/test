@@ -22,6 +22,8 @@ type DashboardViewProps = {
   dataByWindow: Record<TimeWindow, SerializedDashboardData | null>;
 };
 
+type DashboardApiResponse = SerializedDashboardData | { status: "warming" | "ready" };
+
 function toBigInt(value: string): bigint {
   return BigInt(value);
 }
@@ -205,14 +207,14 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
 
     void fetch(`/api/dashboard?window=${entry}`, { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) {
+        if (!response.ok && response.status !== 202) {
           return null;
         }
 
-        return (await response.json()) as SerializedDashboardData;
+        return (await response.json()) as DashboardApiResponse;
       })
       .then((payload) => {
-        if (!payload) {
+        if (!payload || "status" in payload) {
           return;
         }
 
@@ -240,7 +242,57 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
   }, [datasets]);
 
   if (!data) {
-    return null;
+    return (
+      <main className="page">
+        <section className="hero hero-stack">
+          <div className="panel hero-showcase">
+            <div className="hero-main">
+              <div className="hero-copy hero-copy-strong">
+                <span className="eyebrow">Pocket Network</span>
+                <h1>Provider economics for the unstoppable data network.</h1>
+                <p>
+                  The dashboard is warming its first dataset. Cached snapshots will appear here automatically as soon as
+                  the initial background refresh completes.
+                </p>
+
+                <div className="window-tabs" aria-label="time windows">
+                  {WINDOWS.map((entry) => {
+                    const active = entry === window;
+                    return (
+                      <button
+                        key={entry}
+                        type="button"
+                        className={`window-tab${active ? " active" : ""}`}
+                        onClick={() => loadWindow(entry, true)}
+                      >
+                        {entry}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <aside className="hero-side panel panel-inset">
+                <div className="section-title-row compact-gap">
+                  <h2 className="section-title">Status</h2>
+                  <span className="pill">Warming</span>
+                </div>
+                <div className="insight-list">
+                  <div className="insight-row">
+                    <span className="muted">Initial dataset</span>
+                    <strong>Refreshing in background</strong>
+                  </div>
+                  <div className="insight-row">
+                    <span className="muted">Experience mode</span>
+                    <strong>Instant shell, no blocking</strong>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   const topProvider = data.providers[0];

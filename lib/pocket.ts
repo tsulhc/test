@@ -200,6 +200,7 @@ const SAMPLE_BLOCKS_PER_WINDOW: Record<TimeWindow, number> = {
   "7d": 72,
   "30d": 144
 };
+const BLOCK_SEARCH_TIMEOUT_MS = 2_500;
 
 const dashboardCache = new Map<TimeWindow, { expiresAt: number; data: DashboardData }>();
 const dashboardRefreshes = new Map<TimeWindow, Promise<DashboardData>>();
@@ -632,6 +633,28 @@ function serializeDashboardData(data: DashboardData): SerializedDashboardCache {
   };
 }
 
+function getSettlementHeightsCacheKey(window: TimeWindow): string {
+  return `settlement_heights:${window}`;
+}
+
+function getCachedSettlementHeights(window: TimeWindow): Array<{ height: number; time: string }> {
+  const cached = getMeta(getSettlementHeightsCacheKey(window));
+  if (!cached) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(cached) as Array<{ height: number; time: string }>;
+    return parsed.filter((entry) => Number.isFinite(entry.height) && typeof entry.time === "string");
+  } catch {
+    return [];
+  }
+}
+
+function setCachedSettlementHeights(window: TimeWindow, blocks: Array<{ height: number; time: string }>): void {
+  setMeta(getSettlementHeightsCacheKey(window), JSON.stringify(blocks));
+}
+
 function deserializeDashboardData(data: SerializedDashboardCache): DashboardData {
   return {
     ...data,
@@ -676,6 +699,15 @@ function persistDashboard(window: TimeWindow, data: DashboardData): DashboardDat
   });
   setDashboardCache(window, JSON.stringify(serializeDashboardData(data)));
   return data;
+}
+
+function getCachedDashboardSnapshot(window: TimeWindow): DashboardData | null {
+  const cached = dashboardCache.get(window);
+  if (cached?.data) {
+    return cached.data;
+  }
+
+  return hydrateDashboardCache(window);
 }
 
 async function getStatus(): Promise<{ latestHeight: number }> {
@@ -813,41 +845,54 @@ async function getFinalizeEvents(height: number): Promise<RpcEvent[]> {
   return extractFinalizeBlockEventsFromRpcPool(`/block_results?height=${height}`, height);
 }
 
-async function getRecentSettlementBlocks(limit: number): Promise<Array<{ height: number; time: string }>> {
+async function getRecentSettlementBlocks(window: TimeWindow, limit: number): Promise<Array<{ height: number; time: string }>> {
   const blocks: Array<{ height: number; time: string }> = [];
   let page = 1;
 
-  while (blocks.length < limit) {
-    const search = new URLSearchParams({
-      query: `"${SETTLEMENT_MODE_QUERY}"`,
-      page: String(page),
-      per_page: "50",
-      order_by: '"desc"'
-    });
+  try {
+    while (blocks.length < limit) {
+      const search = new URLSearchParams({
+        query: `"${SETTLEMENT_MODE_QUERY}"`,
+        page: String(page),
+        per_page: "50",
+        order_by: '"desc"'
+      });
 
-    const response = await fetchJsonFromRpcPool<BlockSearchResponse>(`/block_search?${search.toString()}`, {
-      seed: page,
-      timeoutMs: DEFAULT_RPC_TIMEOUT_MS,
-      parallel: true
-    });
-    const pageBlocks = response.result?.blocks ?? [];
+      const response = await fetchJsonFromRpcPool<BlockSearchResponse>(`/block_search?${search.toString()}`, {
+        seed: page,
+        timeoutMs: BLOCK_SEARCH_TIMEOUT_MS,
+        parallel: true
+      });
+      const pageBlocks = response.result?.blocks ?? [];
 
-    if (pageBlocks.length === 0) {
-      break;
+      if (pageBlocks.length === 0) {
+        break;
+      }
+
+      for (const entry of pageBlocks) {
+        const height = Number(entry.block?.header?.height ?? 0);
+        const time = entry.block?.header?.time ?? "";
+        if (!height || !time) continue;
+        blocks.push({ height, time });
+        if (blocks.length >= limit) break;
+      }
+
+      page += 1;
     }
 
-    for (const entry of pageBlocks) {
-      const height = Number(entry.block?.header?.height ?? 0);
-      const time = entry.block?.header?.time ?? "";
-      if (!height || !time) continue;
-      blocks.push({ height, time });
-      if (blocks.length >= limit) break;
+    if (blocks.length > 0) {
+      setCachedSettlementHeights(window, blocks);
     }
 
-    page += 1;
+    return blocks;
+  } catch {
+    const cachedBlocks = getCachedSettlementHeights(window);
+    if (cachedBlocks.length > 0) {
+      return cachedBlocks.slice(0, limit);
+    }
+
+    throw new Error(`Unable to load settlement blocks for ${window}`);
   }
-
-  return blocks;
 }
 
 function parseSettlementEvent(event: RpcEvent, blockHeight: number, blockTime: string, serviceMap: ServiceMap): SettlementEvent {
@@ -1182,7 +1227,7 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
     getPoktPriceUsd()
   ]);
 
-  const settlementBlocks = await getRecentSettlementBlocks(SAMPLE_BLOCKS_PER_WINDOW[window]);
+  const settlementBlocks = await getRecentSettlementBlocks(window, SAMPLE_BLOCKS_PER_WINDOW[window]);
   const cachedBlocks = getCachedSettlementBlocks(settlementBlocks.map((block) => block.height));
   const missingSettlementBlocks = settlementBlocks.filter((block) => !cachedBlocks.has(block.height));
 
@@ -1243,11 +1288,21 @@ async function refreshDashboard(window: TimeWindow): Promise<DashboardData> {
   }
 
   const refreshPromise = (async () => {
+    const stale = getCachedDashboardSnapshot(window);
+
     try {
       const dashboard = await loadDashboardFromPoktscan(window);
       return persistDashboard(window, dashboard);
     } catch {
-      return loadDashboardFromRpc(window);
+      try {
+        return await loadDashboardFromRpc(window);
+      } catch {
+        if (stale) {
+          return stale;
+        }
+
+        throw new Error(`Unable to refresh dashboard for ${window}`);
+      }
     }
   })();
 
@@ -1278,6 +1333,14 @@ async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
 
 export async function getDashboardData(window: TimeWindow): Promise<DashboardData> {
   return loadDashboard(window);
+}
+
+export function getDashboardSnapshot(window: TimeWindow): DashboardData | null {
+  return getCachedDashboardSnapshot(window);
+}
+
+export function primeDashboardRefresh(window: TimeWindow): void {
+  void refreshDashboard(window);
 }
 
 export const warmDashboardData = cache(async (window: TimeWindow): Promise<DashboardData> => loadDashboard(window));

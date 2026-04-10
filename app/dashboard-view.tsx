@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import RevenueCalculator from "@/app/revenue-calculator";
 import {
@@ -19,7 +19,7 @@ const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
 type DashboardViewProps = {
   initialWindow: TimeWindow;
-  dataByWindow: Record<TimeWindow, SerializedDashboardData>;
+  dataByWindow: Record<TimeWindow, SerializedDashboardData | null>;
 };
 
 function toBigInt(value: string): bigint {
@@ -190,8 +190,58 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
 }
 
 export default function DashboardView({ initialWindow, dataByWindow }: DashboardViewProps) {
+  const [datasets, setDatasets] = useState<Record<TimeWindow, SerializedDashboardData | null>>(dataByWindow);
   const [window, setWindow] = useState<TimeWindow>(initialWindow);
-  const data = useMemo(() => dataByWindow[window], [dataByWindow, window]);
+  const [isPending, startTransition] = useTransition();
+  const data = useMemo(() => datasets[window] ?? datasets[initialWindow], [datasets, initialWindow, window]);
+
+  function loadWindow(entry: TimeWindow, activate = false) {
+    if (datasets[entry]) {
+      if (activate) {
+        setWindow(entry);
+      }
+      return;
+    }
+
+    void fetch(`/api/dashboard?window=${entry}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          return null;
+        }
+
+        return (await response.json()) as SerializedDashboardData;
+      })
+      .then((payload) => {
+        if (!payload) {
+          return;
+        }
+
+        startTransition(() => {
+          setDatasets((current) => ({ ...current, [entry]: payload }));
+          if (activate) {
+            setWindow(entry);
+          }
+        });
+      })
+      .catch(() => {
+        // Leave the current view in place if this background request fails.
+      });
+  }
+
+  useEffect(() => {
+    const missingWindows = WINDOWS.filter((entry) => !datasets[entry]);
+    if (missingWindows.length === 0) {
+      return;
+    }
+
+    for (const entry of missingWindows) {
+      loadWindow(entry, false);
+    }
+  }, [datasets]);
+
+  if (!data) {
+    return null;
+  }
 
   const topProvider = data.providers[0];
   const topService = data.services[0];
@@ -236,7 +286,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                       key={entry}
                       type="button"
                       className={`window-tab${active ? " active" : ""}`}
-                      onClick={() => setWindow(entry)}
+                      onClick={() => loadWindow(entry, true)}
                     >
                       {entry}
                     </button>
@@ -261,7 +311,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
             <aside className="hero-side panel panel-inset">
               <div className="section-title-row compact-gap">
                 <h2 className="section-title">Live leaderboard</h2>
-                <span className="pill">{formatRelativeRange(window)}</span>
+                  <span className="pill">{formatRelativeRange(window)}</span>
               </div>
               <HeroBars providers={data.providers} />
             </aside>
@@ -313,6 +363,12 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 <span className="muted">Last refresh</span>
                 <strong>{new Date(data.generatedAt).toLocaleString("en-US")}</strong>
               </div>
+              {isPending ? (
+                <div className="insight-row">
+                  <span className="muted">Background refresh</span>
+                  <strong>Updating cached windows</strong>
+                </div>
+              ) : null}
             </div>
           </article>
 

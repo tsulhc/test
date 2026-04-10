@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { getCachedSettlementBlocks, getMeta, saveSettlementBlock, setMeta } from "@/lib/db";
+import { getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBlock, setDashboardCache, setMeta } from "@/lib/db";
 import { PROVIDER_DOMAIN_LABEL_OVERRIDES, SUPPLIER_PROVIDER_OVERRIDES } from "@/lib/provider-overrides";
 import type {
   DashboardData,
@@ -202,7 +202,17 @@ const SAMPLE_BLOCKS_PER_WINDOW: Record<TimeWindow, number> = {
 };
 
 const dashboardCache = new Map<TimeWindow, { expiresAt: number; data: DashboardData }>();
+const dashboardRefreshes = new Map<TimeWindow, Promise<DashboardData>>();
 let priceCache: { value: number; expiresAt: number } | null = null;
+
+type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
+  totalRevenueUpokt: string;
+  providers: Array<Omit<ProviderStats, "revenueUpokt" | "chains"> & {
+    revenueUpokt: string;
+    chains: Array<{ serviceId: string; serviceName: string; relays: number; revenueUpokt: string }>;
+  }>;
+  services: Array<Omit<ServiceStats, "revenueUpokt"> & { revenueUpokt: string }>;
+};
 
 function buildRpcUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
@@ -601,6 +611,71 @@ function parseNumericBigInt(value: string | number | null | undefined): bigint {
 
   const normalized = value.includes(".") ? value.split(".")[0] ?? "0" : value;
   return BigInt(normalized || "0");
+}
+
+function serializeDashboardData(data: DashboardData): SerializedDashboardCache {
+  return {
+    ...data,
+    totalRevenueUpokt: data.totalRevenueUpokt.toString(),
+    providers: data.providers.map((provider) => ({
+      ...provider,
+      revenueUpokt: provider.revenueUpokt.toString(),
+      chains: provider.chains.map((chain) => ({
+        ...chain,
+        revenueUpokt: chain.revenueUpokt.toString()
+      }))
+    })),
+    services: data.services.map((service) => ({
+      ...service,
+      revenueUpokt: service.revenueUpokt.toString()
+    }))
+  };
+}
+
+function deserializeDashboardData(data: SerializedDashboardCache): DashboardData {
+  return {
+    ...data,
+    totalRevenueUpokt: BigInt(data.totalRevenueUpokt),
+    providers: data.providers.map((provider) => ({
+      ...provider,
+      revenueUpokt: BigInt(provider.revenueUpokt),
+      chains: provider.chains.map((chain) => ({
+        ...chain,
+        revenueUpokt: BigInt(chain.revenueUpokt)
+      }))
+    })),
+    services: data.services.map((service) => ({
+      ...service,
+      revenueUpokt: BigInt(service.revenueUpokt)
+    }))
+  };
+}
+
+function hydrateDashboardCache(window: TimeWindow): DashboardData | null {
+  const persisted = getDashboardCache(window);
+  if (!persisted) {
+    return null;
+  }
+
+  try {
+    const data = deserializeDashboardData(JSON.parse(persisted.payloadJson) as SerializedDashboardCache);
+    dashboardCache.set(window, {
+      data,
+      expiresAt: new Date(persisted.updatedAt).getTime() + CACHE_TTL_MS
+    });
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function persistDashboard(window: TimeWindow, data: DashboardData): DashboardData {
+  dashboardCache.set(window, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    data
+  });
+  setDashboardCache(window, JSON.stringify(serializeDashboardData(data)));
+  return data;
 }
 
 async function getStatus(): Promise<{ latestHeight: number }> {
@@ -1100,11 +1175,6 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
 }
 
 async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> {
-  const cached = dashboardCache.get(window);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.data;
-  }
-
   const [{ latestHeight }, serviceMap, supplierDirectory, poktPriceUsd] = await Promise.all([
     getStatus(),
     getServiceMap(),
@@ -1163,30 +1233,51 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
     scannedSettlementHeights
   };
 
-  dashboardCache.set(window, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
-    data: finalized
-  });
+  return persistDashboard(window, finalized);
+}
 
-  return finalized;
+async function refreshDashboard(window: TimeWindow): Promise<DashboardData> {
+  const inFlight = dashboardRefreshes.get(window);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const refreshPromise = (async () => {
+    try {
+      const dashboard = await loadDashboardFromPoktscan(window);
+      return persistDashboard(window, dashboard);
+    } catch {
+      return loadDashboardFromRpc(window);
+    }
+  })();
+
+  dashboardRefreshes.set(window, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    dashboardRefreshes.delete(window);
+  }
 }
 
 async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
-  const cached = dashboardCache.get(window);
-  if (cached && cached.expiresAt > Date.now()) {
+  const cached = dashboardCache.get(window) ?? (() => {
+    const hydrated = hydrateDashboardCache(window);
+    return hydrated ? dashboardCache.get(window) : undefined;
+  })();
+
+  if (cached?.data) {
+    if (cached.expiresAt <= Date.now()) {
+      void refreshDashboard(window);
+    }
+
     return cached.data;
   }
 
-  try {
-    const dashboard = await loadDashboardFromPoktscan(window);
-    dashboardCache.set(window, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      data: dashboard
-    });
-    return dashboard;
-  } catch {
-    return loadDashboardFromRpc(window);
-  }
+  return refreshDashboard(window);
 }
 
-export const getDashboardData = cache(loadDashboard);
+export async function getDashboardData(window: TimeWindow): Promise<DashboardData> {
+  return loadDashboard(window);
+}
+
+export const warmDashboardData = cache(async (window: TimeWindow): Promise<DashboardData> => loadDashboard(window));

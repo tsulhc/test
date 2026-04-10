@@ -32,6 +32,12 @@ db.exec(`
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS dashboard_cache (
+    window TEXT PRIMARY KEY,
+    payload_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `);
 
 const selectSettlementBlocksStatement = db.prepare(
@@ -57,6 +63,20 @@ const upsertMetaStatement = db.prepare(
     VALUES (@key, @value, @updated_at)
     ON CONFLICT(key) DO UPDATE SET
       value = excluded.value,
+      updated_at = excluded.updated_at
+  `
+);
+
+const selectDashboardCacheStatement = db.prepare(
+  "SELECT payload_json, updated_at FROM dashboard_cache WHERE window = ?"
+);
+
+const upsertDashboardCacheStatement = db.prepare(
+  `
+    INSERT INTO dashboard_cache (window, payload_json, updated_at)
+    VALUES (@window, @payload_json, @updated_at)
+    ON CONFLICT(window) DO UPDATE SET
+      payload_json = excluded.payload_json,
       updated_at = excluded.updated_at
   `
 );
@@ -97,6 +117,26 @@ export function setMeta(key: string, value: string): void {
   upsertMetaStatement.run({
     key,
     value,
+    updated_at: new Date().toISOString()
+  });
+}
+
+export function getDashboardCache(window: string): { payloadJson: string; updatedAt: string } | null {
+  const row = selectDashboardCacheStatement.get(window) as { payload_json: string; updated_at: string } | undefined;
+  if (!row) {
+    return null;
+  }
+
+  return {
+    payloadJson: row.payload_json,
+    updatedAt: row.updated_at
+  };
+}
+
+export function setDashboardCache(window: string, payloadJson: string): void {
+  upsertDashboardCacheStatement.run({
+    window,
+    payload_json: payloadJson,
     updated_at: new Date().toISOString()
   });
 }

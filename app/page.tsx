@@ -1,5 +1,5 @@
 import DashboardView from "@/app/dashboard-view";
-import { getDashboardData } from "@/lib/pocket";
+import { warmDashboardData } from "@/lib/pocket";
 import type { DashboardData, SerializedDashboardData, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
@@ -38,7 +38,7 @@ export default async function Home({ searchParams }: PageProps) {
   const initialWindow = isWindow(resolvedSearchParams.window) ? resolvedSearchParams.window : "24h";
 
   const entries = await Promise.all(
-    WINDOWS.map(async (window) => [window, serializeDashboardData(await getDashboardData(window))] as const)
+    WINDOWS.map(async (window) => [window, serializeDashboardData(await warmDashboardData(window))] as const)
   );
   const dataByWindow = Object.fromEntries(entries) as Record<TimeWindow, SerializedDashboardData>;
 

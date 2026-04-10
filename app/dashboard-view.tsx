@@ -73,7 +73,7 @@ function HeroBars({ providers }: { providers: SerializedProviderStats[] }) {
             <div className="hero-bar-track">
               <div className="hero-bar-fill" style={{ width: `${width}%` }} />
             </div>
-            <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+            <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
           </div>
         );
       })}
@@ -89,7 +89,7 @@ function DonutMeter({ value, label, detail }: { value: number; label: string; de
       <div
         className="donut-ring"
         style={{
-          background: `conic-gradient(from 220deg, #59f0b1 0deg, #14b8ff ${degrees}deg, rgba(255,255,255,0.08) ${degrees}deg 360deg)`
+          background: `conic-gradient(from 220deg, var(--green) 0deg, var(--accent) ${degrees}deg, rgba(255,255,255,0.05) ${degrees}deg 360deg)`
         }}
       >
         <div className="donut-inner">
@@ -128,7 +128,7 @@ function ProviderRevenueChart({
                 <div className="muted mono">{provider.providerDomain}</div>
               </div>
               <div className="right">
-                <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+                <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
                 <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, poktPriceUsd), 0)} · {formatPercent(share, 1)} share</div>
               </div>
             </div>
@@ -349,12 +349,12 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
               <div className="hero-highlight-grid">
                 <div className="hero-highlight">
                   <span className="hero-highlight-label">Provider-side revenue</span>
-                  <strong>{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
+                  <strong className="accent-number">{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
                   <p>{formatUsd(totalRevenueUsd, 0)} across the {formatRelativeRange(window)}.</p>
                 </div>
                 <div className="hero-highlight">
                   <span className="hero-highlight-label">Average revenue per provider</span>
-                  <strong>{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
+                  <strong className="accent-number">{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
                   <p>{formatUsd(averageRevenuePerProviderUsd, 0)} per active provider in the selected window.</p>
                 </div>
               </div>

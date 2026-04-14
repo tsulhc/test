@@ -120,8 +120,7 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
               <strong className="accent-number">15 Foundation-covered suppliers</strong>
               <p>
                 The calculator starts from the Foundation assumption of <strong>15 free suppliers</strong>. It also uses a
-                simple Pocket session model: sessions last <strong>{SESSION_DURATION_MINUTES} minutes</strong> and only
-                <strong> {SESSION_SUPPLIER_SLOTS} suppliers</strong> are selected to receive traffic in each session.
+                simple Pocket session model: sessions last <strong>{SESSION_DURATION_MINUTES} minutes</strong> and only <strong>{SESSION_SUPPLIER_SLOTS} suppliers</strong> are selected to receive traffic in each session.
                 You can change your planned supplier count below.
               </p>
             </div>
@@ -190,12 +189,12 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           </div>
 
           <p className="footer-note">
-            Methodology: the default model assumes <strong>15 free suppliers from the Foundation</strong>. Your planned
+            <strong>Methodology:</strong> The default model assumes 15 free suppliers from the Foundation. Your planned
             suppliers are allocated across the selected chains, prioritizing the most profitable ones first. For each chain,
-            the calculator uses the observed revenue and estimates your expected session share as
-            <code> your suppliers on chain / max(50, active provider domains)</code>, using active provider domains as a
+            the calculator uses the observed revenue and estimates your expected session share as <code>suppliers / max({SESSION_SUPPLIER_SLOTS}, active_providers)</code>, using active provider domains as a
             simple proxy for the competitive supplier pool.
           </p>
+
         </div>
 
         <div className="calculator-checklist panel panel-inset">

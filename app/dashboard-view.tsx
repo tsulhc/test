@@ -10,8 +10,7 @@ import {
   formatPercent,
   formatRelativeRange,
   formatUsd,
-  formatUpokt,
-  truncateAddress
+  formatUpokt
 } from "@/lib/format";
 import type { SerializedDashboardData, SerializedProviderStats, SerializedServiceStats, TimeWindow } from "@/lib/types";
 
@@ -371,61 +370,8 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         </div>
 
         <div className="hero-support-grid">
-          <article className="panel hero-meta">
-            <div className="section-title-row compact-gap">
-              <h2 className="section-title">Network Integrity</h2>
-              <span className="pill">Runtime</span>
-            </div>
-            <div className="insight-list">
-              <div className="insight-row">
-                <span className="muted">Data source</span>
-                <strong>{data.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">Latest chain height</span>
-                <strong>{formatInteger(data.latestHeight)}</strong>
-              </div>
-              {indexerLag != null ? (
-                <div className="insight-row">
-                  <span className="muted">Indexer lag</span>
-                  <strong>{formatInteger(indexerLag)} block</strong>
-                </div>
-              ) : null}
-              <div className="insight-row">
-                <span className="muted">Settlement blocks scanned</span>
-                <strong>{formatInteger(data.scannedSettlementHeights)}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">EventClaimSettled records</span>
-                <strong>{formatInteger(data.settlementEvents)}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">Top provider share</span>
-                <strong>{formatPercent(topProviderShare, 1)}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">POKT price</span>
-                <strong>{formatUsd(data.poktPriceUsd, 4)}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">Top service</span>
-                <strong>{topService ? topService.serviceName : "n/a"}</strong>
-              </div>
-              <div className="insight-row">
-                <span className="muted">Last refresh</span>
-                <strong>{new Date(data.generatedAt).toLocaleString("en-US")}</strong>
-              </div>
-              {isPending ? (
-                <div className="insight-row">
-                  <span className="muted">Background refresh</span>
-                  <strong>Updating cached windows</strong>
-                </div>
-              ) : null}
-            </div>
-          </article>
-
-            <article className="panel narrative-card">
-              <span className="eyebrow eyebrow-ghost">Quick read</span>
+          <article className="panel narrative-card">
+            <span className="eyebrow eyebrow-ghost">Quick read</span>
             <h2>Market Entry Benchmarks: Your Day-One Strategy.</h2>
             <ul className="narrative-points">
               <li>
@@ -441,6 +387,22 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the high-demand service to prioritize.
               </li>
             </ul>
+          </article>
+
+          <article className="panel section section-visual">
+            <div className="section-title-row">
+              <div>
+                <h2 className="section-title">Market Dynamics</h2>
+                <p className="section-subtitle">A high-level view of revenue distribution across the provider ecosystem.</p>
+              </div>
+              <span className="pill">Competition</span>
+            </div>
+
+            <div className="donut-grid">
+              <DonutMeter value={topProviderShare} label="Top Performer" detail="Market share captured by the leading provider domain." />
+              <DonutMeter value={top5ProviderShare} label="Top 5 Focus" detail="Measures how much of the network revenue is held by the top 5 entities." />
+              <DonutMeter value={top5ServiceShare} label="High-Demand Mix" detail="The share of revenue driven by the top 5 services." />
+            </div>
           </article>
         </div>
       </section>
@@ -479,23 +441,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
         }))}
       />
 
-      <section className="section-grid section-grid-visual">
-        <article className="panel section section-visual">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Market Dynamics</h2>
-              <p className="section-subtitle">A high-level view of revenue distribution across the provider ecosystem.</p>
-            </div>
-            <span className="pill">Competition</span>
-          </div>
-
-          <div className="donut-grid">
-            <DonutMeter value={topProviderShare} label="Top Performer" detail="Market share captured by the leading provider domain." />
-            <DonutMeter value={top5ProviderShare} label="Top 5 Focus" detail="Measures how much of the network revenue is held by the top 5 entities." />
-            <DonutMeter value={top5ServiceShare} label="High-Demand Mix" detail="The share of revenue driven by the top 5 services." />
-          </div>
-        </article>
-
+      <section>
         <article className="panel section section-visual">
           <div className="section-title-row">
             <div>
@@ -625,15 +571,6 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 <span>{formatDecimal(provider.relays / Math.max(provider.chainCount, 1), 0)} relays per service</span>
               </div>
 
-              <div className="provider-stats provider-stats-strong">
-                {provider.suppliers.slice(0, 6).map((supplier) => (
-                  <span key={supplier.operatorAddress} className="mono">
-                    {truncateAddress(supplier.operatorAddress, 10, 6)}
-                  </span>
-                ))}
-                {provider.supplierCount > 6 ? <span>+{provider.supplierCount - 6} more suppliers</span> : null}
-              </div>
-
               <table className="mini-table">
                 <thead>
                   <tr>
@@ -665,6 +602,59 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           supplier grouping, and resilient fallbacks so the experience remains responsive while Pocket Network continues
           moving toward a fuller historical RC1 data product.
         </p>
+      </section>
+
+      <section className="panel section hero-meta">
+        <div className="section-title-row compact-gap">
+          <h2 className="section-title">Network Integrity</h2>
+          <span className="pill">Runtime</span>
+        </div>
+        <div className="insight-list">
+          <div className="insight-row">
+            <span className="muted">Data source</span>
+            <strong>{data.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">Latest chain height</span>
+            <strong>{formatInteger(data.latestHeight)}</strong>
+          </div>
+          {indexerLag != null ? (
+            <div className="insight-row">
+              <span className="muted">Indexer lag</span>
+              <strong>{formatInteger(indexerLag)} block</strong>
+            </div>
+          ) : null}
+          <div className="insight-row">
+            <span className="muted">Settlement blocks scanned</span>
+            <strong>{formatInteger(data.scannedSettlementHeights)}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">EventClaimSettled records</span>
+            <strong>{formatInteger(data.settlementEvents)}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">Top provider share</span>
+            <strong>{formatPercent(topProviderShare, 1)}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">POKT price</span>
+            <strong>{formatUsd(data.poktPriceUsd, 4)}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">Top service</span>
+            <strong>{topService ? topService.serviceName : "n/a"}</strong>
+          </div>
+          <div className="insight-row">
+            <span className="muted">Last refresh</span>
+            <strong>{new Date(data.generatedAt).toLocaleString("en-US")}</strong>
+          </div>
+          {isPending ? (
+            <div className="insight-row">
+              <span className="muted">Background refresh</span>
+              <strong>Updating cached windows</strong>
+            </div>
+          ) : null}
+        </div>
       </section>
     </main>
   );

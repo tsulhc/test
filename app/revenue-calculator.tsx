@@ -18,35 +18,86 @@ type RevenueCalculatorProps = {
 };
 
 const FREE_SUPPLIER_BUDGET = 15;
+const DEFAULT_SELECTED_CHAIN_COUNT = 10;
+const SESSION_DURATION_MINUTES = 30;
+const SESSION_SUPPLIER_SLOTS = 50;
+
+function clampSupplierCount(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(250, Math.trunc(value)));
+}
 
 function toUsdFromUpokt(value: bigint, poktPriceUsd: number): number {
   return (Number(value) / 1_000_000) * poktPriceUsd;
 }
 
 export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCalculatorProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(services.map((service) => service.serviceId));
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    services.slice(0, DEFAULT_SELECTED_CHAIN_COUNT).map((service) => service.serviceId)
+  );
+  const [supplierCount, setSupplierCount] = useState<number>(FREE_SUPPLIER_BUDGET);
 
   const selectedServices = useMemo(() => {
     const selected = new Set(selectedIds);
     return services.filter((service) => selected.has(service.serviceId));
   }, [selectedIds, services]);
 
+  const supplierAllocation = useMemo(() => {
+    const allocation = new Map<string, number>();
+    if (selectedServices.length === 0 || supplierCount === 0) {
+      return allocation;
+    }
+
+    for (const service of selectedServices) {
+      allocation.set(service.serviceId, 0);
+    }
+
+    let remainingSuppliers = supplierCount;
+
+    for (const service of selectedServices) {
+      if (remainingSuppliers === 0) {
+        break;
+      }
+
+      allocation.set(service.serviceId, 1);
+      remainingSuppliers -= 1;
+    }
+
+    for (let index = 0; index < remainingSuppliers; index += 1) {
+      const service = selectedServices[index % selectedServices.length];
+      allocation.set(service.serviceId, (allocation.get(service.serviceId) ?? 0) + 1);
+    }
+
+    return allocation;
+  }, [selectedServices, supplierCount]);
+
   const selectedRevenueUpokt = selectedServices.reduce((sum, service) => sum + BigInt(service.revenueUpokt), 0n);
   const selectedRelays = selectedServices.reduce((sum, service) => sum + service.relays, 0);
-  const conservativeEntryUpokt = selectedServices.reduce(
-    (sum, service) => sum + BigInt(service.revenueUpokt) / BigInt(Math.max(service.providerCount + 1, 1)),
-    0n
-  );
+  const projectedEntryUpokt = selectedServices.reduce((sum, service) => {
+    const allocatedSuppliers = supplierAllocation.get(service.serviceId) ?? 0;
+    if (allocatedSuppliers === 0) {
+      return sum;
+    }
+
+    const effectiveCompetitivePool = Math.max(SESSION_SUPPLIER_SLOTS, service.providerCount);
+    const modeledShareNumerator = Math.min(allocatedSuppliers, effectiveCompetitivePool);
+
+    return sum + (BigInt(service.revenueUpokt) * BigInt(modeledShareNumerator)) / BigInt(effectiveCompetitivePool);
+  }, 0n);
   const selectedChainCount = selectedServices.length;
-  const remainingFreeSuppliers = Math.max(0, FREE_SUPPLIER_BUDGET - selectedChainCount);
-  const needsPaidSuppliers = Math.max(0, selectedChainCount - FREE_SUPPLIER_BUDGET);
-  const entryPerSupplierUpokt =
-    selectedChainCount === 0 ? 0n : conservativeEntryUpokt / BigInt(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET));
+  const coveredChainCount = selectedServices.filter((service) => (supplierAllocation.get(service.serviceId) ?? 0) > 0).length;
+  const foundationCoveredSuppliers = Math.min(supplierCount, FREE_SUPPLIER_BUDGET);
+  const selfFundedSuppliers = Math.max(0, supplierCount - FREE_SUPPLIER_BUDGET);
+  const entryPerSupplierUpokt = supplierCount === 0 ? 0n : projectedEntryUpokt / BigInt(supplierCount);
 
   function toggleService(serviceId: string) {
     setSelectedIds((current) =>
       current.includes(serviceId) ? current.filter((entry) => entry !== serviceId) : [...current, serviceId]
     );
+  }
+
+  function resetTopChains() {
+    setSelectedIds(services.slice(0, DEFAULT_SELECTED_CHAIN_COUNT).map((service) => service.serviceId));
   }
 
   return (
@@ -63,6 +114,31 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
 
       <div className="calculator-layout">
         <div className="calculator-summary">
+          <div className="calculator-assumption panel panel-inset">
+            <div>
+              <span className="hero-highlight-label">Default Assumption</span>
+              <strong className="accent-number">15 Foundation-covered suppliers</strong>
+              <p>
+                The calculator starts from the Foundation assumption of <strong>15 free suppliers</strong>. It also uses a
+                simple Pocket session model: sessions last <strong>{SESSION_DURATION_MINUTES} minutes</strong> and only
+                <strong> {SESSION_SUPPLIER_SLOTS} suppliers</strong> are selected to receive traffic in each session.
+                You can change your planned supplier count below.
+              </p>
+            </div>
+
+            <label className="calculator-input-group">
+              <span className="hero-highlight-label">Planned suppliers</span>
+              <input
+                type="number"
+                min={0}
+                max={250}
+                step={1}
+                value={supplierCount}
+                onChange={(event) => setSupplierCount(clampSupplierCount(Number(event.target.value)))}
+              />
+            </label>
+          </div>
+
           <div className="calculator-kpis">
             <article className="calculator-kpi-card">
               <span className="kpi-label">Addressable Revenue Pool</span>
@@ -72,9 +148,9 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
 
             <article className="calculator-kpi-card calculator-kpi-card-accent">
               <span className="kpi-label">Market Entry Projection</span>
-              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(conservativeEntryUpokt, 1)}</strong>
+              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(projectedEntryUpokt, 1)}</strong>
               <span className="kpi-foot">
-                Projected share based on current provider density
+                Session-aware estimate based on selected chains and planned supplier count
               </span>
             </article>
           </div>
@@ -83,13 +159,21 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
             <div className="calculator-meta-card">
               <span className="hero-highlight-label">Target Chains</span>
               <strong className="accent-number">{formatInteger(selectedChainCount)}</strong>
-              <p>{formatInteger(Math.min(selectedChainCount, FREE_SUPPLIER_BUDGET))} PNF-covered suppliers in your model.</p>
+              <p>{formatInteger(coveredChainCount)} of them receive at least one modeled supplier.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Startup Allowance</span>
-              <strong className="accent-number">{formatInteger(remainingFreeSuppliers)}</strong>
-              <p>{needsPaidSuppliers > 0 ? `${formatInteger(needsPaidSuppliers)} suppliers beyond the initial allocation.` : "No additional suppliers required."}</p>
+              <span className="hero-highlight-label">Supplier Plan</span>
+              <strong className="accent-number">{formatInteger(supplierCount)}</strong>
+              <p>
+                {formatInteger(foundationCoveredSuppliers)} Foundation-covered, {formatInteger(selfFundedSuppliers)} self-funded.
+              </p>
+            </div>
+
+            <div className="calculator-meta-card">
+              <span className="hero-highlight-label">Session Model</span>
+              <strong className="accent-number">{formatInteger(SESSION_SUPPLIER_SLOTS)}</strong>
+              <p>Selected suppliers per {formatInteger(SESSION_DURATION_MINUTES)}-minute session.</p>
             </div>
 
             <div className="calculator-meta-card">
@@ -106,15 +190,24 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           </div>
 
           <p className="footer-note">
-            Methodology: This model estimates your entry share as <code>observed revenue / (active providers + 1)</code>. 
-            It assumes a baseline entry of one supplier per selected chain within the PNF-bootstrapped allocation.
+            Methodology: the default model assumes <strong>15 free suppliers from the Foundation</strong>. Your planned
+            suppliers are allocated across the selected chains, prioritizing the most profitable ones first. For each chain,
+            the calculator uses the observed revenue and estimates your expected session share as
+            <code> your suppliers on chain / max(50, active provider domains)</code>, using active provider domains as a
+            simple proxy for the competitive supplier pool.
           </p>
         </div>
 
         <div className="calculator-checklist panel panel-inset">
           <div className="section-title-row compact-gap">
-            <h3 className="section-title">Chain checklist</h3>
+            <div>
+              <h3 className="section-title">Chain checklist</h3>
+              <p className="section-subtitle">Default selection: the 10 most profitable chains in the current window.</p>
+            </div>
             <div className="calculator-actions">
+              <button type="button" className="calculator-action" onClick={resetTopChains}>
+                Top 10 default
+              </button>
               <button type="button" className="calculator-action" onClick={() => setSelectedIds(services.map((service) => service.serviceId))}>
                 Select all
               </button>

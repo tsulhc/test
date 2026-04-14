@@ -1,5 +1,19 @@
 # Pocket Dashboard Technical Design
 
+## Stato Attuale della Codebase
+
+La codebase attuale ha gia una demo pubblica funzionante, ma non implementa ancora alla lettera tutta l'architettura RC1 descritta in questo documento.
+
+In particolare oggi:
+
+- l'applicazione e una singola app Next.js, non un sistema separato `worker + db analitico + api`
+- la dashboard tenta prima di leggere aggregati da `Poktscan`
+- se `Poktscan` non e disponibile, usa un fallback RPC che legge `EventClaimSettled` dagli `end_block_events`
+- la persistenza locale e un SQLite leggero usato per cache di settlement block, metadata e snapshot della dashboard
+- la UI pubblica raggruppa i supplier soprattutto a livello di provider domain, derivato da domini/endpoints del supplier, non solo per `supplier_operator_address`
+
+Quindi questo documento va letto come direzione architetturale per l'evoluzione verso una RC1 piu rigorosa, non come descrizione perfettamente aderente di ogni dettaglio implementato oggi.
+
 ## Scopo
 
 Questo documento definisce come costruire la prima versione utile di una dashboard Pocket Network per nuovi provider, con focus economico.
@@ -254,6 +268,8 @@ Dato da salvare comunque:
 Se si vorra una vista "relay realmente eseguiti nel tempo", si potra arricchire ogni settlement con il timestamp del `session_end_block_height` risolvendo l'header del blocco corrispondente.
 
 ## Architettura Consigliata
+
+Nota pratica: la demo pubblica attuale condensa questi ruoli dentro la stessa app Next.js e usa caching locale invece di tabelle analitiche complete. La separazione in componenti qui sotto resta comunque la direzione consigliata se il progetto evolvera oltre la primissima demo pubblica.
 
 ## Componenti
 

@@ -1,5 +1,20 @@
 # Pocket Dashboard RC1 Roadmap
 
+## Stato Attuale
+
+La codebase attuale ha gia una dashboard demo funzionante e non parte piu da un repository vuoto.
+
+Oggi il progetto ha gia:
+
+- app Next.js con dashboard pubblica
+- filtri `24h`, `7d`, `30d`
+- leaderboard provider e vista servizi
+- revenue calculator orientato all'onboarding
+- cache persistita in SQLite
+- fonte primaria `Poktscan` con fallback RPC diretto
+
+Questa roadmap quindi descrive soprattutto l'evoluzione verso una RC1 piu rigorosa e storicamente completa, non un lavoro da rifare da zero.
+
 ## Obiettivo RC1
 
 Costruire una dashboard visiva per Pocket Network focalizzata sull'onboarding dei nuovi provider, con due metriche economiche iniziali:
@@ -71,6 +86,8 @@ Come dato di supporto, va comunque conservato `session_end_block_height` dall'ev
 ## Fasi di Lavoro
 
 ## Fase 0. Fondazione progetto
+
+Stato rispetto alla codebase attuale: in gran parte gia superata per la demo pubblica. Le parti ancora rilevanti sono soprattutto quelle che riguardano robustezza del modello dati e ingestion storica piu completa.
 
 Output:
 

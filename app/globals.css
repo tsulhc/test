@@ -566,6 +566,9 @@ code {
 .calculator-assumption p strong {
   display: inline;
   margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  font-family: inherit;
   color: var(--text);
 }
 
@@ -599,6 +602,8 @@ code {
 
 .calculator-kpi-card,
 .calculator-meta-card {
+  display: grid;
+  gap: 8px;
   padding: 20px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -611,10 +616,18 @@ code {
 }
 
 .calculator-kpi-value {
+  display: block;
+  margin: 2px 0 4px 0;
   font-family: var(--font-accent);
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.15;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.calculator-kpi-card .kpi-label,
+.calculator-kpi-card .kpi-foot {
+  line-height: 1.45;
 }
 
 .calculator-meta-grid {

@@ -116,7 +116,7 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
         <div className="calculator-summary">
           <div className="calculator-assumption panel panel-inset">
             <div>
-              <span className="hero-highlight-label">Default Assumption</span>
+              <span className="hero-highlight-label">PNF is ready to support you</span>
               <strong className="accent-number">15 Foundation-covered suppliers</strong>
               <p>
                 The calculator starts from the Foundation assumption of <strong>15 free suppliers</strong>. It also uses a

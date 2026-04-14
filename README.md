@@ -1,82 +1,111 @@
-# Pocket Dashboard RC0
+# Pocket Provider Dashboard
 
-Demo live pubblica per Pocket Network, ottimizzata per onboarding provider.
+Public-facing Pocket Network dashboard focused on provider onboarding.
 
-## Cosa fa oggi
+## Overview
 
-- espone una UI Next.js con filtri `24h`, `7d`, `30d`
-- mostra una vista market-oriented per nuovi provider:
-  - revenue provider-side
-  - relay serviti
-  - leaderboard provider domain
-  - servizi ad alta domanda
-  - revenue calculator per simulare l'ingresso sul network
-- usa `Poktscan` come fonte primaria quando disponibile
-- usa fallback RPC diretto verso Pocket Shannon quando `Poktscan` non e disponibile
+This project is a Next.js app that turns live Pocket Network data into a simple provider-side market view.
 
-## Nota RC0
+The current public demo focuses on:
 
-Questa versione non usa ancora un indexer completo di produzione.
+- provider-side revenue across `24h`, `7d`, and `30d` windows
+- relay demand across active services
+- top provider domains and high-demand services
+- a growth calculator for early provider planning
 
-In pratica oggi:
+## Current Product Scope
 
-- la dashboard e una singola app Next.js
-- usa un piccolo database SQLite locale per cache e snapshot persistiti
-- tenta prima di leggere aggregati da `Poktscan`
-- se necessario ricade su RPC pubblici leggendo settlement block recenti
-- raggruppa i supplier in provider domain derivati dagli endpoint/configurazioni dei supplier
+This repository does **not** implement the full RC1 architecture described in the technical docs yet.
 
-Per rimanere veloce su RPC pubblici:
+Today, the project is intentionally lightweight:
 
-- usa `block_search` per trovare gli ultimi settlement block con `EventClaimSettled`
-- scarica solo un campione recente di settlement block per ciascuna finestra
-- salta automaticamente i `block_results` troppo lenti o troppo pesanti
+- a single Next.js application
+- a small local SQLite cache for settlement blocks, metadata, and dashboard snapshots
+- `Poktscan` as the primary data source when available
+- direct Pocket RPC fallback when `Poktscan` is unavailable
+- provider grouping at the domain level, derived from supplier endpoints and service configuration
 
-Quindi i numeri sono utili come demo live, ma non ancora equivalenti a un prodotto storico completo con indexer dedicato.
+That makes it a good public demo, but not yet a full historical analytics product backed by a dedicated indexer.
 
-## Default endpoints
+## Data Sources
+
+The dashboard uses a two-layer data strategy.
+
+### Primary path: `Poktscan`
+
+When available, the app loads pre-aggregated network data from `Poktscan` for faster response times and broader historical coverage.
+
+### Fallback path: Pocket RPC
+
+When `Poktscan` is unavailable, the app falls back to Pocket Shannon RPC and reads settlement information from `end_block_events`.
+
+In fallback mode it:
+
+- uses `block_search` to find recent blocks containing `EventClaimSettled`
+- fetches only a recent sample of settlement blocks per time window
+- skips slow or heavy `block_results` responses automatically
+
+In this mode, provider-side revenue is computed from the supplier-side share inside `reward_distribution_detailed`.
+
+## Demo Semantics
+
+Some details are important when reading the numbers shown in the UI.
+
+- The main unit shown in the dashboard is a provider domain, not a single supplier operator.
+- USD values are derived from the live CoinGecko price for `pocket-network`.
+- Time windows are based on settlement block time, or the equivalent aggregated time window from `Poktscan`.
+- The growth calculator is deliberately simple and designed to provide plausible onboarding guidance, not exact protocol-level forecasting.
+
+## Default Endpoints
 
 - RPC pool:
   - `https://sauron-rpc.infra.pocket.network`
   - `https://pocket-rpc.polkachu.com:443`
   - `https://rpc.pocket.chaintools.tech:443`
   - `https://pocket.api.pocket.network:443`
-- REST: `https://sauron-api.infra.pocket.network`
+- REST:
+  - `https://sauron-api.infra.pocket.network`
 
-Override opzionali:
+## Environment Variables
+
+Optional overrides:
 
 - `POCKET_RPC_URL`
-- `POCKET_RPC_URLS` comma-separated per definire un pool custom di RPC
+- `POCKET_RPC_URLS` comma-separated custom RPC pool
 - `POCKET_REST_URL`
 - `POKTSCAN_API_URL`
-- `POCKET_SQLITE_PATH` per cambiare il path del database SQLite locale
+- `POCKET_SQLITE_PATH`
 
-Strategia RC0 sugli RPC:
-
-- `status` e `block_search` provano piu RPC in parallelo
-- `block_results` distribuisce i fetch tra RPC diversi in base alla height
-- se il fetch di un blocco fallisce o va in timeout, la richiesta riprova sugli altri RPC del pool
-
-Strategia RC0 sulle fonti dati:
-
-- `Poktscan` e il fast-path principale della dashboard
-- il fallback RPC continua a usare `EventClaimSettled` dagli `end_block_events`
-- la cache locale evita cold start lenti e riduce refetch ripetuti
-
-## Avvio
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Poi apri `http://localhost:3000`.
+Then open `http://localhost:3000`.
 
-## Note
+## Verification
 
-- Cache in memoria di 5 minuti + SQLite locale per settlement block, metadata e snapshot dashboard.
-- In fallback RPC, revenue = somma della quota supplier-side in `reward_distribution_detailed`.
-- Quando la dashboard usa `Poktscan`, gli aggregati arrivano da dataset gia pre-elaborati lato Poktscan.
-- La demo usa `block_time` del settlement block o la finestra aggregata equivalente per i filtri temporali.
-- Revenue USD = conversione live usando CoinGecko `pocket-network`.
-- L'unita mostrata in UI e un provider domain aggregato; il dettaglio per singolo supplier/operator rimane secondario nella demo pubblica.
+```bash
+npm run typecheck
+npm run build
+```
+
+## Caching
+
+The app uses:
+
+- in-memory caching for short-lived dashboard responses
+- SQLite persistence for settlement blocks, metadata, and dashboard snapshots
+
+This keeps the public demo responsive and reduces repeated network fetches.
+
+## Repository Context
+
+If you want the longer-term direction for the project, see:
+
+- `TECHNICAL_DESIGN.md`
+- `ROADMAP.md`
+
+Those documents describe the path toward a more rigorous RC1 architecture. The implementation in this repository is the current public demo version.

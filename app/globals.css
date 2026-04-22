@@ -424,6 +424,15 @@ code {
   width: fit-content;
 }
 
+.supplier-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.supplier-link:hover {
+  text-decoration: underline;
+}
+
 .section-title {
   margin: 0;
   font-size: 1.25rem;

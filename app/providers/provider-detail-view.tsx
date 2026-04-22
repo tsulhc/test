@@ -185,6 +185,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
   const revenuePerService = currentProvider.chainCount === 0 ? 0 : toPoktNumber(currentProvider.revenueUpokt) / currentProvider.chainCount;
   const revenuePerThousandRelays = currentProvider.relays === 0 ? 0 : (toPoktNumber(currentProvider.revenueUpokt) / currentProvider.relays) * 1000;
   const supplierDetailAvailable = currentProvider.suppliers.some((supplier) => supplier.detailAvailable && supplier.revenueUpokt);
+  const supplierDetailCoverage = currentProvider.suppliers.filter((supplier) => supplier.detailAvailable && supplier.revenueUpokt).length;
 
   return (
     <main className="page provider-page">
@@ -397,32 +398,42 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             <span className="pill">Operators</span>
           </div>
 
-          {supplierDetailAvailable ? (
-            <table className="mini-table">
-              <thead>
-                <tr>
-                  <th>Supplier</th>
-                  <th className="right">Services</th>
-                  <th className="right">Relays</th>
-                  <th className="right">Revenue</th>
+          <table className="mini-table">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th className="right">Services</th>
+                <th className="right">Relays</th>
+                <th className="right">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentProvider.suppliers.map((supplier) => (
+                <tr key={supplier.operatorAddress}>
+                  <td className="mono">
+                    <a
+                      href={`https://poktscan.com/supplier/${supplier.operatorAddress}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="supplier-link"
+                    >
+                      {truncateAddress(supplier.operatorAddress, 12, 6)}
+                    </a>
+                  </td>
+                  <td className="right">{supplier.detailAvailable ? formatInteger(supplier.chainCount ?? 0) : "n/a"}</td>
+                  <td className="right">{supplier.detailAvailable ? formatInteger(supplier.relays ?? 0) : "n/a"}</td>
+                  <td className="right">{supplier.revenueUpokt ? formatUpokt(toBigInt(supplier.revenueUpokt), 1) : "n/a"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {currentProvider.suppliers.map((supplier) => (
-                  <tr key={supplier.operatorAddress}>
-                    <td className="mono">{truncateAddress(supplier.operatorAddress, 12, 6)}</td>
-                    <td className="right">{formatInteger(supplier.chainCount ?? 0)}</td>
-                    <td className="right">{formatInteger(supplier.relays ?? 0)}</td>
-                    <td className="right">{supplier.revenueUpokt ? formatUpokt(toBigInt(supplier.revenueUpokt), 1) : "n/a"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="footer-note">
-              Supplier-level revenue detail is currently most reliable on finer-grained snapshots, especially <code>24h</code>. Broader windows may only expose provider-domain aggregates from the current data source.
-            </p>
-          )}
+              ))}
+            </tbody>
+          </table>
+
+          <p className="footer-note">
+            {supplierDetailAvailable
+              ? `${formatInteger(supplierDetailCoverage)} of ${formatInteger(currentProvider.suppliers.length)} suppliers have direct revenue detail in this ${selectedWindow} snapshot.`
+              : `This ${selectedWindow} snapshot does not expose direct supplier-level revenue yet.`}{" "}
+            Supplier-level monetization is most reliable on finer-grained snapshots, especially <code>24h</code>. Clicking a supplier opens its Poktscan page.
+          </p>
         </article>
       </section>
     </main>

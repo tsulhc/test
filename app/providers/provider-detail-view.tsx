@@ -22,6 +22,7 @@ import type {
 } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
+const INITIAL_VISIBLE_SUPPLIERS = 30;
 
 type ProviderDetailViewProps = {
   providerKey: string;
@@ -82,6 +83,7 @@ function getDailyRunRate(provider: SerializedProviderStats | null, window: TimeW
 export default function ProviderDetailView({ providerKey, initialWindow, dataByWindow, history }: ProviderDetailViewProps) {
   const [selectedWindow, setSelectedWindow] = useState<TimeWindow>(initialWindow);
   const [dataState, setDataState] = useState<Record<TimeWindow, SerializedDashboardData | null>>(dataByWindow);
+  const [visibleSupplierCount, setVisibleSupplierCount] = useState<number>(INITIAL_VISIBLE_SUPPLIERS);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -107,6 +109,10 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
         });
     });
   }, [dataState, selectedWindow]);
+
+  useEffect(() => {
+    setVisibleSupplierCount(INITIAL_VISIBLE_SUPPLIERS);
+  }, [providerKey, selectedWindow]);
 
   const currentData = dataState[selectedWindow];
   const currentProvider = getProvider(currentData, providerKey);
@@ -217,6 +223,8 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
   const revenuePerThousandRelays = currentProvider.relays === 0 ? 0 : (toPoktNumber(currentProvider.revenueUpokt) / currentProvider.relays) * 1000;
   const supplierDetailAvailable = currentProvider.suppliers.some((supplier) => supplier.detailAvailable && supplier.revenueUpokt);
   const supplierDetailCoverage = currentProvider.suppliers.filter((supplier) => supplier.detailAvailable && supplier.revenueUpokt).length;
+  const visibleSuppliers = currentProvider.suppliers.slice(0, visibleSupplierCount);
+  const hasMoreSuppliers = currentProvider.suppliers.length > visibleSupplierCount;
 
   return (
     <main className="page provider-page">
@@ -272,7 +280,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
         </div>
       </section>
 
-      <section className="section-grid provider-grid-top">
+      <section className="provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -334,7 +342,9 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             </p>
           )}
         </article>
+      </section>
 
+      <section className="section-grid provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -501,10 +511,10 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
               </tr>
             </thead>
             <tbody>
-              {currentProvider.suppliers.map((supplier) => (
-                <tr key={supplier.operatorAddress}>
-                  <td className="mono">
-                    <a
+                {visibleSuppliers.map((supplier) => (
+                  <tr key={supplier.operatorAddress}>
+                    <td className="mono">
+                      <a
                       href={`https://poktscan.com/supplier/${supplier.operatorAddress}`}
                       target="_blank"
                       rel="noreferrer"
@@ -517,9 +527,30 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                   <td className="right">{supplier.detailAvailable ? formatInteger(supplier.relays ?? 0) : "n/a"}</td>
                   <td className="right">{supplier.revenueUpokt ? formatUpokt(toBigInt(supplier.revenueUpokt), 1) : "n/a"}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+
+          {hasMoreSuppliers ? (
+            <div className="provider-load-more-row">
+              <button
+                type="button"
+                className="calculator-action"
+                onClick={() => setVisibleSupplierCount((current) => current + INITIAL_VISIBLE_SUPPLIERS)}
+              >
+                Load More
+              </button>
+              <span className="muted">
+                Showing {formatInteger(visibleSuppliers.length)} of {formatInteger(currentProvider.suppliers.length)} suppliers
+              </span>
+            </div>
+          ) : currentProvider.suppliers.length > INITIAL_VISIBLE_SUPPLIERS ? (
+            <div className="provider-load-more-row">
+              <span className="muted">
+                Showing all {formatInteger(currentProvider.suppliers.length)} suppliers
+              </span>
+            </div>
+          ) : null}
 
           <p className="footer-note">
             {supplierDetailAvailable

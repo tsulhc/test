@@ -488,6 +488,15 @@ code {
   gap: 12px;
 }
 
+.provider-load-more-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
 .provider-empty-state {
   display: grid;
   gap: 20px;

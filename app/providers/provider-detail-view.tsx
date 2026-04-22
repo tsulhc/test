@@ -344,14 +344,14 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
         </article>
       </section>
 
-      <section className="provider-detail-grid provider-detail-grid-three provider-grid-top">
+      <section className="section-grid provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Growth Signal</h2>
-              <p className="section-subtitle">A simple run-rate view using the available 24h, 7d, and 30d snapshots.</p>
+              <h2 className="section-title">Growth Snapshot</h2>
+              <p className="section-subtitle">Current efficiency, concentration, and run-rate momentum in a single operator view.</p>
             </div>
-            <span className="pill">Momentum</span>
+            <span className="pill">Performance</span>
           </div>
 
           <div className="provider-timescale-grid">
@@ -370,19 +370,6 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="provider-insight-list">
             <div className="insight-row"><span className="muted">24h vs 7d run rate</span><strong>{formatPercent(momentum24hVs7d, 1)}</strong></div>
             <div className="insight-row"><span className="muted">7d vs 30d run rate</span><strong>{formatPercent(momentum7dVs30d, 1)}</strong></div>
-          </div>
-        </article>
-
-        <article className="panel section">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Performance Snapshot</h2>
-              <p className="section-subtitle">Current efficiency, concentration, and monetization quality for this provider.</p>
-            </div>
-            <span className="pill">{formatRelativeRange(selectedWindow)}</span>
-          </div>
-
-          <div className="provider-insight-list">
             <div className="insight-row"><span className="muted">Revenue per supplier</span><strong>{formatDecimal(revenuePerSupplier, 1)} POKT</strong></div>
             <div className="insight-row"><span className="muted">Revenue per service</span><strong>{formatDecimal(revenuePerService, 1)} POKT</strong></div>
             <div className="insight-row"><span className="muted">Revenue per 1k relays</span><strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong></div>

@@ -1019,6 +1019,7 @@ function buildDashboardFromProviderRows(
 
       if (!provider.suppliers.includes(supplier)) {
         provider.suppliers.push(supplier);
+        provider.supplierCount = provider.suppliers.length;
       }
 
       supplier.relays = (supplier.relays ?? 0) + row.relays;
@@ -1080,6 +1081,7 @@ function buildDashboardFromProviderRows(
   const providers = Array.from(providerMap.values())
     .map((provider) => ({
       ...provider,
+      supplierCount: provider.suppliers.length,
       suppliers: provider.suppliers
         .map((supplier) => ({
           ...supplier,
@@ -1219,6 +1221,7 @@ function buildDashboard(
   const providers = Array.from(providerMap.values())
     .map((provider) => ({
       ...provider,
+      supplierCount: provider.suppliers.length,
       suppliers: provider.suppliers
         .map((supplier) => ({
           ...supplier,

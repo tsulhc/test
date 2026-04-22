@@ -13,7 +13,13 @@ import {
   formatUpokt,
   truncateAddress
 } from "@/lib/format";
-import type { SerializedDashboardData, SerializedProviderStats, SerializedServiceStats, TimeWindow } from "@/lib/types";
+import type {
+  SerializedDashboardData,
+  SerializedProviderDailyHistoryPoint,
+  SerializedProviderStats,
+  SerializedServiceStats,
+  TimeWindow
+} from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
@@ -21,6 +27,7 @@ type ProviderDetailViewProps = {
   providerKey: string;
   initialWindow: TimeWindow;
   dataByWindow: Record<TimeWindow, SerializedDashboardData | null>;
+  history: SerializedProviderDailyHistoryPoint[];
 };
 
 type DashboardApiResponse = SerializedDashboardData | { status: "warming" | "ready" };
@@ -59,12 +66,20 @@ function getProvider(data: SerializedDashboardData | null, providerKey: string):
   return data?.providers.find((provider) => provider.providerKey === providerKey) ?? null;
 }
 
+function buildMovingAverage(values: number[], windowSize: number): number[] {
+  return values.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = values.slice(start, index + 1);
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  });
+}
+
 function getDailyRunRate(provider: SerializedProviderStats | null, window: TimeWindow): number {
   if (!provider) return 0;
   return toPoktNumber(provider.revenueUpokt) / daysForWindow(window);
 }
 
-export default function ProviderDetailView({ providerKey, initialWindow, dataByWindow }: ProviderDetailViewProps) {
+export default function ProviderDetailView({ providerKey, initialWindow, dataByWindow, history }: ProviderDetailViewProps) {
   const [selectedWindow, setSelectedWindow] = useState<TimeWindow>(initialWindow);
   const [dataState, setDataState] = useState<Record<TimeWindow, SerializedDashboardData | null>>(dataByWindow);
   const [isPending, startTransition] = useTransition();
@@ -136,6 +151,22 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
     const middle = Math.floor(values.length / 2);
     return values.length % 2 === 0 ? (values[middle - 1] + values[middle]) / 2 : values[middle];
   }, [similarProviders]);
+
+  const historyValues = history.map((point) => toPoktNumber(point.revenueUpokt));
+  const movingAverage = buildMovingAverage(historyValues, 7);
+  const maxHistoryRevenue = Math.max(...historyValues, 0);
+  const lastHistoryPoint = history.at(-1);
+  const previousHistoryPoint = history.at(-2);
+  const trailing7dRevenue = history.slice(-7).reduce((sum, point) => sum + toPoktNumber(point.revenueUpokt), 0);
+  const trailing14dRevenue = history.slice(-14, -7).reduce((sum, point) => sum + toPoktNumber(point.revenueUpokt), 0);
+  const trailing7dGrowth = trailing14dRevenue === 0 ? 0 : ((trailing7dRevenue / trailing14dRevenue) - 1) * 100;
+  const dayOverDayGrowth = !lastHistoryPoint || !previousHistoryPoint || toBigInt(previousHistoryPoint.revenueUpokt) === 0n
+    ? 0
+    : ((toPoktNumber(lastHistoryPoint.revenueUpokt) / toPoktNumber(previousHistoryPoint.revenueUpokt)) - 1) * 100;
+  const bestHistoryDay = history.reduce<SerializedProviderDailyHistoryPoint | null>((best, point) => {
+    if (!best || toBigInt(point.revenueUpokt) > toBigInt(best.revenueUpokt)) return point;
+    return best;
+  }, null);
 
   const opportunityServices = useMemo(() => {
     if (!currentData || !currentProvider) return [];
@@ -245,20 +276,63 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Performance Snapshot</h2>
-              <p className="section-subtitle">Current efficiency, concentration, and monetization quality for this provider.</p>
+              <h2 className="section-title">Performance Over Time</h2>
+              <p className="section-subtitle">Daily provider-side revenue across the last 30 settled days from Poktscan.</p>
             </div>
-            <span className="pill">{formatRelativeRange(selectedWindow)}</span>
+            <span className="pill">Timeseries</span>
           </div>
 
-          <div className="provider-insight-list">
-            <div className="insight-row"><span className="muted">Revenue per supplier</span><strong>{formatDecimal(revenuePerSupplier, 1)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Revenue per service</span><strong>{formatDecimal(revenuePerService, 1)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Revenue per 1k relays</span><strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Top service concentration</span><strong>{currentProvider.chains[0] ? formatPercent(getShare(currentProvider.chains[0].revenueUpokt, currentProvider.revenueUpokt), 1) : "n/a"}</strong></div>
-            <div className="insight-row"><span className="muted">Live data source</span><strong>{currentData.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong></div>
-            {isPending ? <div className="insight-row"><span className="muted">Background refresh</span><strong>Updating window snapshot</strong></div> : null}
-          </div>
+          {history.length > 0 ? (
+            <>
+              <div className="provider-history-summary">
+                <div className="provider-history-stat">
+                  <span className="hero-highlight-label">Latest day</span>
+                  <strong>{lastHistoryPoint ? formatUpokt(toBigInt(lastHistoryPoint.revenueUpokt), 1) : "n/a"}</strong>
+                  <p>{lastHistoryPoint?.day ?? "No daily history yet"}</p>
+                </div>
+                <div className="provider-history-stat">
+                  <span className="hero-highlight-label">7d growth</span>
+                  <strong>{formatPercent(trailing7dGrowth, 1)}</strong>
+                  <p>Last 7 days versus the previous 7 days.</p>
+                </div>
+                <div className="provider-history-stat">
+                  <span className="hero-highlight-label">Day-over-day</span>
+                  <strong>{formatPercent(dayOverDayGrowth, 1)}</strong>
+                  <p>Latest day versus the day before.</p>
+                </div>
+                <div className="provider-history-stat">
+                  <span className="hero-highlight-label">Best day</span>
+                  <strong>{bestHistoryDay ? formatUpokt(toBigInt(bestHistoryDay.revenueUpokt), 1) : "n/a"}</strong>
+                  <p>{bestHistoryDay?.day ?? "n/a"}</p>
+                </div>
+              </div>
+
+              <div className="provider-history-chart">
+                {history.map((point, index) => {
+                  const revenue = historyValues[index] ?? 0;
+                  const average = movingAverage[index] ?? 0;
+                  const height = maxHistoryRevenue === 0 ? 6 : Math.max(6, Math.round((revenue / maxHistoryRevenue) * 100));
+                  const averageHeight = maxHistoryRevenue === 0 ? 6 : Math.max(6, Math.round((average / maxHistoryRevenue) * 100));
+
+                  return (
+                    <div key={point.day} className="provider-history-bar-group" title={`${point.day}: ${formatDecimal(revenue, 1)} POKT · ${formatInteger(point.relays)} relays`}>
+                      <div className="provider-history-average" style={{ height: `${averageHeight}%` }} />
+                      <div className="provider-history-bar" style={{ height: `${height}%` }} />
+                      <span>{point.day.slice(5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="footer-note">
+                Solid bars show daily provider revenue. The faint line behind them represents a rolling 7-day average to make momentum easier to read.
+              </p>
+            </>
+          ) : (
+            <p className="footer-note">
+              Daily provider history is not available for this provider yet. Domain-based providers backed by Poktscan have the best support for this view.
+            </p>
+          )}
         </article>
 
         <article className="panel section">
@@ -291,6 +365,25 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
       </section>
 
       <section className="section-grid provider-grid-top">
+        <article className="panel section">
+          <div className="section-title-row">
+            <div>
+              <h2 className="section-title">Performance Snapshot</h2>
+              <p className="section-subtitle">Current efficiency, concentration, and monetization quality for this provider.</p>
+            </div>
+            <span className="pill">{formatRelativeRange(selectedWindow)}</span>
+          </div>
+
+          <div className="provider-insight-list">
+            <div className="insight-row"><span className="muted">Revenue per supplier</span><strong>{formatDecimal(revenuePerSupplier, 1)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Revenue per service</span><strong>{formatDecimal(revenuePerService, 1)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Revenue per 1k relays</span><strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Top service concentration</span><strong>{currentProvider.chains[0] ? formatPercent(getShare(currentProvider.chains[0].revenueUpokt, currentProvider.revenueUpokt), 1) : "n/a"}</strong></div>
+            <div className="insight-row"><span className="muted">Live data source</span><strong>{currentData.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong></div>
+            {isPending ? <div className="insight-row"><span className="muted">Background refresh</span><strong>Updating window snapshot</strong></div> : null}
+          </div>
+        </article>
+
         <article className="panel section">
           <div className="section-title-row">
             <div>

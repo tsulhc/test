@@ -1,7 +1,7 @@
 import ProviderDetailView from "@/app/providers/provider-detail-view";
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardDataSafe, getDashboardSnapshot, primeDashboardRefresh } from "@/lib/pocket";
-import type { SerializedDashboardData, TimeWindow } from "@/lib/types";
+import { getDashboardDataSafe, getDashboardSnapshot, getProviderDailyHistory, primeDashboardRefresh } from "@/lib/pocket";
+import type { SerializedDashboardData, SerializedProviderDailyHistoryPoint, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
@@ -35,5 +35,10 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
     ...otherEntries
   ]) as Record<TimeWindow, SerializedDashboardData | null>;
 
-  return <ProviderDetailView providerKey={providerKey} initialWindow={initialWindow} dataByWindow={dataByWindow} />;
+  const history = (await getProviderDailyHistory(providerKey)).map((point) => ({
+    ...point,
+    revenueUpokt: point.revenueUpokt.toString()
+  })) satisfies SerializedProviderDailyHistoryPoint[];
+
+  return <ProviderDetailView providerKey={providerKey} initialWindow={initialWindow} dataByWindow={dataByWindow} history={history} />;
 }

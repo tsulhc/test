@@ -58,6 +58,12 @@ export type DashboardData = {
   services: ServiceStats[];
 };
 
+export type ProviderDailyHistoryPoint = {
+  day: string;
+  relays: number;
+  revenueUpokt: bigint;
+};
+
 export type SerializedProviderChainStats = Omit<ProviderChainStats, "revenueUpokt"> & {
   revenueUpokt: string;
 };
@@ -73,6 +79,10 @@ export type SerializedProviderStats = Omit<ProviderStats, "revenueUpokt" | "chai
 };
 
 export type SerializedServiceStats = Omit<ServiceStats, "revenueUpokt"> & {
+  revenueUpokt: string;
+};
+
+export type SerializedProviderDailyHistoryPoint = Omit<ProviderDailyHistoryPoint, "revenueUpokt"> & {
   revenueUpokt: string;
 };
 

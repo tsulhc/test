@@ -4,6 +4,7 @@ import { getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBl
 import { PROVIDER_DOMAIN_LABEL_OVERRIDES, SUPPLIER_PROVIDER_OVERRIDES } from "@/lib/provider-overrides";
 import type {
   DashboardData,
+  ProviderDailyHistoryPoint,
   ProviderStats,
   ServiceMap,
   ServiceStats,
@@ -65,6 +66,21 @@ type PoktscanDomainRewardsResponse = {
       lastProcessedHeight?: number | null;
       targetHeight?: number | null;
     } | null;
+    rewards?: {
+      groupedAggregates?: Array<{
+        keys?: string[] | null;
+        sum?: {
+          grossRewards?: string | number | null;
+          relays?: string | number | null;
+        } | null;
+      }> | null;
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+};
+
+type PoktscanProviderDailyHistoryResponse = {
+  data?: {
     rewards?: {
       groupedAggregates?: Array<{
         keys?: string[] | null;
@@ -221,6 +237,7 @@ const SAMPLE_BLOCKS_PER_WINDOW: Record<TimeWindow, number> = {
   "7d": 72,
   "30d": 144
 };
+const PROVIDER_HISTORY_DAYS = 30;
 const BLOCK_SEARCH_TIMEOUT_MS = 2_500;
 
 const dashboardCache = new Map<TimeWindow, { expiresAt: number; data: DashboardData }>();
@@ -619,6 +636,10 @@ function getWindowStart(window: TimeWindow): Date {
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 function parseNumeric(value: string | number | null | undefined): number {
@@ -1492,6 +1513,73 @@ async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
 export async function getDashboardData(window: TimeWindow): Promise<DashboardData> {
   return loadDashboard(window);
 }
+
+export const getProviderDailyHistory = cache(async (providerKey: string, days = PROVIDER_HISTORY_DAYS): Promise<ProviderDailyHistoryPoint[]> => {
+  if (!providerKey || providerKey.startsWith("owner:")) {
+    return [];
+  }
+
+  const end = new Date();
+  const start = addDays(end, -(days - 1));
+
+  try {
+    const response = await fetchPoktscan<PoktscanProviderDailyHistoryResponse>(
+      `query ProviderDailyHistory($start: Date!, $end: Date!, $domain: String!) {
+        rewards: domainServiceDailyRewards(
+          filter: {
+            day: {
+              greaterThanOrEqualTo: $start
+              lessThanOrEqualTo: $end
+            }
+            domain: {
+              equalTo: $domain
+            }
+          }
+        ) {
+          groupedAggregates(groupBy: [DAY, DOMAIN]) {
+            keys
+            sum {
+              grossRewards
+              relays
+            }
+          }
+        }
+      }`,
+      {
+        start: toIsoDate(start),
+        end: toIsoDate(end),
+        domain: providerKey
+      }
+    );
+
+    const byDay = new Map<string, ProviderDailyHistoryPoint>();
+    for (const aggregate of response.data?.rewards?.groupedAggregates ?? []) {
+      const day = aggregate.keys?.[0];
+      if (!day) continue;
+      byDay.set(day, {
+        day,
+        relays: parseNumeric(aggregate.sum?.relays),
+        revenueUpokt: parseNumericBigInt(aggregate.sum?.grossRewards)
+      });
+    }
+
+    const series: ProviderDailyHistoryPoint[] = [];
+    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+      const day = toIsoDate(cursor);
+      series.push(
+        byDay.get(day) ?? {
+          day,
+          relays: 0,
+          revenueUpokt: 0n
+        }
+      );
+    }
+
+    return series;
+  } catch {
+    return [];
+  }
+});
 
 export function getDashboardSnapshot(window: TimeWindow): DashboardData | null {
   return getCachedDashboardSnapshot(window);

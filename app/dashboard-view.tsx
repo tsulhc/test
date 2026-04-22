@@ -488,18 +488,17 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
             {data.providers.slice(0, 8).map((provider, index) => {
               const share = getShare(provider.revenueUpokt, data.totalRevenueUpokt);
               return (
-                <Link key={provider.providerKey} href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-row provider-row-rich provider-row-link">
+                <div key={provider.providerKey} className="provider-row provider-row-rich">
                   <div className="provider-row-top">
                     <div>
                       <strong>#{index + 1} {provider.providerLabel}</strong>
                       <div className="muted mono">{provider.providerDomain}</div>
-                      <div className="provider-link-cue">View details</div>
+                      <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-inline-link">
+                        View details <span className="provider-link-arrow" aria-hidden="true">→</span>
+                      </Link>
                     </div>
                     <div className="right">
-                      <div className="provider-link-end provider-link-end-right">
-                        <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-                        <span className="provider-link-arrow" aria-hidden="true">→</span>
-                      </div>
+                      <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
                       <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
                     </div>
                   </div>
@@ -509,7 +508,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     <span>{formatInteger(provider.supplierCount)} suppliers</span>
                     <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT per service</span>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

@@ -69,11 +69,15 @@ function HeroBars({ providers, window }: { providers: SerializedProviderStats[];
             <div className="hero-bar-meta">
               <span>#{index + 1}</span>
               <span>{provider.providerLabel}</span>
+              <span className="provider-link-cue">View details</span>
             </div>
             <div className="hero-bar-track">
               <div className="hero-bar-fill" style={{ width: `${width}%` }} />
             </div>
-            <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+            <div className="provider-link-end">
+              <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+              <span className="provider-link-arrow" aria-hidden="true">→</span>
+            </div>
           </Link>
         );
       })}
@@ -489,9 +493,13 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     <div>
                       <strong>#{index + 1} {provider.providerLabel}</strong>
                       <div className="muted mono">{provider.providerDomain}</div>
+                      <div className="provider-link-cue">View details</div>
                     </div>
                     <div className="right">
-                      <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+                      <div className="provider-link-end provider-link-end-right">
+                        <strong>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
+                        <span className="provider-link-arrow" aria-hidden="true">→</span>
+                      </div>
                       <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
                     </div>
                   </div>
@@ -559,10 +567,14 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                   <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-card-link">
                     <strong>{provider.providerLabel}</strong>
                     <div className="muted mono">{provider.providerDomain}</div>
+                    <div className="provider-link-cue">View details</div>
                   </Link>
                 </div>
                 <div className="right">
-                  <strong>{formatUpokt(toBigInt(provider.revenueUpokt))}</strong>
+                  <div className="provider-link-end provider-link-end-right">
+                    <strong>{formatUpokt(toBigInt(provider.revenueUpokt))}</strong>
+                    <span className="provider-link-arrow" aria-hidden="true">→</span>
+                  </div>
                   <div className="muted">{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
                 </div>
               </div>

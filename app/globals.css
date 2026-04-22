@@ -252,6 +252,37 @@ code {
   gap: 4px;
 }
 
+.provider-link-cue {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.provider-link-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-link-end-right {
+  justify-content: flex-end;
+}
+
+.provider-link-arrow {
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.hero-bar-link:hover .provider-link-arrow,
+.provider-row-link:hover .provider-link-arrow,
+.provider-card-link:hover .provider-link-arrow {
+  transform: translateX(2px);
+}
+
 .hero-bar-meta,
 .provider-row-top,
 .service-row-top,

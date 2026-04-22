@@ -424,6 +424,10 @@ code {
   justify-content: flex-end;
 }
 
+.provider-head-controls {
+  align-items: center;
+}
+
 .provider-kpi-grid,
 .provider-timescale-grid {
   display: grid;

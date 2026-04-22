@@ -237,7 +237,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
               <p className="section-subtitle mono">{currentProvider.providerDomain}</p>
             </div>
             <div className="provider-head-actions">
-              <div className="window-tabs provider-window-tabs">
+              <div className="window-tabs provider-window-tabs provider-head-controls">
                 {WINDOWS.map((window) => (
                   <button
                     key={window}
@@ -248,10 +248,10 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                     {window}
                   </button>
                 ))}
+                <Link href={`/?window=${selectedWindow}`} className="calculator-action provider-back-link">
+                  Back to dashboard
+                </Link>
               </div>
-              <Link href={`/?window=${selectedWindow}`} className="calculator-action provider-back-link">
-                Back to dashboard
-              </Link>
             </div>
           </div>
 

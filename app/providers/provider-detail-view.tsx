@@ -372,9 +372,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             <div className="insight-row"><span className="muted">7d vs 30d run rate</span><strong>{formatPercent(momentum7dVs30d, 1)}</strong></div>
           </div>
         </article>
-      </section>
 
-      <section className="section-grid provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -393,9 +391,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             {isPending ? <div className="insight-row"><span className="muted">Background refresh</span><strong>Updating window snapshot</strong></div> : null}
           </div>
         </article>
-      </section>
 
-      <section className="section-grid provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>

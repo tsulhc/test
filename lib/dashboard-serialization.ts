@@ -7,6 +7,10 @@ export function serializeDashboardData(data: DashboardData): SerializedDashboard
     providers: data.providers.map((provider) => ({
       ...provider,
       revenueUpokt: provider.revenueUpokt.toString(),
+      suppliers: provider.suppliers.map((supplier) => ({
+        ...supplier,
+        revenueUpokt: supplier.revenueUpokt?.toString()
+      })),
       chains: provider.chains.map((chain) => ({
         ...chain,
         revenueUpokt: chain.revenueUpokt.toString()

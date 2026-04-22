@@ -11,6 +11,10 @@ export type SupplierMember = {
   operatorAddress: string;
   ownerAddress: string;
   domain: string;
+  relays?: number;
+  revenueUpokt?: bigint;
+  chainCount?: number;
+  detailAvailable?: boolean;
 };
 
 export type ProviderStats = {
@@ -58,8 +62,13 @@ export type SerializedProviderChainStats = Omit<ProviderChainStats, "revenueUpok
   revenueUpokt: string;
 };
 
-export type SerializedProviderStats = Omit<ProviderStats, "revenueUpokt" | "chains"> & {
+export type SerializedSupplierMember = Omit<SupplierMember, "revenueUpokt"> & {
+  revenueUpokt?: string;
+};
+
+export type SerializedProviderStats = Omit<ProviderStats, "revenueUpokt" | "chains" | "suppliers"> & {
   revenueUpokt: string;
+  suppliers: SerializedSupplierMember[];
   chains: SerializedProviderChainStats[];
 };
 

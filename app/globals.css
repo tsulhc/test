@@ -230,6 +230,28 @@ code {
   align-items: center;
 }
 
+.hero-bar-link,
+.provider-row-link,
+.provider-card-link {
+  color: inherit;
+}
+
+.hero-bar-link,
+.provider-row-link {
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.hero-bar-link:hover,
+.provider-row-link:hover {
+  border-color: rgba(105, 141, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.provider-card-link {
+  display: grid;
+  gap: 4px;
+}
+
 .hero-bar-meta,
 .provider-row-top,
 .service-row-top,
@@ -314,6 +336,92 @@ code {
 
 .section-grid-visual {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.provider-page {
+  padding-bottom: 96px;
+}
+
+.provider-hero,
+.provider-grid-top {
+  margin-bottom: 32px;
+}
+
+.provider-head {
+  display: grid;
+  gap: 24px;
+  padding: 32px;
+}
+
+.provider-head h1 {
+  margin: 16px 0 8px;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 1.05;
+}
+
+.provider-head-top,
+.provider-head-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.provider-window-tabs {
+  justify-content: flex-end;
+}
+
+.provider-kpi-grid,
+.provider-timescale-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.provider-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.provider-timescale-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+.provider-timescale-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.provider-timescale-card strong {
+  font-family: var(--font-accent);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.provider-timescale-card p,
+.provider-empty-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.provider-insight-list {
+  display: grid;
+  gap: 12px;
+}
+
+.provider-empty-state {
+  display: grid;
+  gap: 20px;
+}
+
+.provider-back-link {
+  width: fit-content;
 }
 
 .section-title {
@@ -767,6 +875,8 @@ code {
   .calculator-layout,
   .calculator-kpis,
   .calculator-meta-grid,
+  .provider-kpi-grid,
+  .provider-timescale-grid,
   .kpi-grid,
   .donut-grid {
     grid-template-columns: 1fr;
@@ -809,6 +919,8 @@ code {
   .provider-row-top,
   .service-row-top,
   .provider-card-top,
+  .provider-head-top,
+  .provider-head-actions,
   .section-title-row,
   .chart-row-head,
   .opportunity-head,

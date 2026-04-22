@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import RevenueCalculator from "@/app/revenue-calculator";
@@ -54,17 +55,17 @@ function median(numbers: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
-function HeroBars({ providers }: { providers: SerializedProviderStats[] }) {
+function HeroBars({ providers, window }: { providers: SerializedProviderStats[]; window: TimeWindow }) {
   const topProviders = providers.slice(0, 6);
   const maxRevenue = topProviders[0]?.revenueUpokt ?? "0";
 
   return (
-    <div className="hero-bars">
+          <div className="hero-bars">
       {topProviders.map((provider, index) => {
         const width = maxRevenue === "0" ? 0 : Math.max(8, Math.round((Number(provider.revenueUpokt) / Number(maxRevenue)) * 100));
 
         return (
-          <div key={provider.providerKey} className="hero-bar-row">
+          <Link key={provider.providerKey} href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="hero-bar-row hero-bar-link">
             <div className="hero-bar-meta">
               <span>#{index + 1}</span>
               <span>{provider.providerLabel}</span>
@@ -73,7 +74,7 @@ function HeroBars({ providers }: { providers: SerializedProviderStats[] }) {
               <div className="hero-bar-fill" style={{ width: `${width}%` }} />
             </div>
             <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-          </div>
+          </Link>
         );
       })}
     </div>
@@ -364,7 +365,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                 <h2 className="section-title">Market Leaders</h2>
                   <span className="pill">{formatRelativeRange(window)}</span>
               </div>
-              <HeroBars providers={data.providers} />
+              <HeroBars providers={data.providers} window={window} />
             </aside>
           </div>
         </div>
@@ -483,7 +484,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
             {data.providers.slice(0, 8).map((provider, index) => {
               const share = getShare(provider.revenueUpokt, data.totalRevenueUpokt);
               return (
-                <div key={provider.providerKey} className="provider-row provider-row-rich">
+                <Link key={provider.providerKey} href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-row provider-row-rich provider-row-link">
                   <div className="provider-row-top">
                     <div>
                       <strong>#{index + 1} {provider.providerLabel}</strong>
@@ -500,7 +501,7 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
                     <span>{formatInteger(provider.supplierCount)} suppliers</span>
                     <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT per service</span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -555,8 +556,10 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
             <article key={provider.providerKey} className="panel provider-card provider-card-rich">
               <div className="provider-card-top">
                 <div>
-                  <strong>{provider.providerLabel}</strong>
-                  <div className="muted mono">{provider.providerDomain}</div>
+                  <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-card-link">
+                    <strong>{provider.providerLabel}</strong>
+                    <div className="muted mono">{provider.providerDomain}</div>
+                  </Link>
                 </div>
                 <div className="right">
                   <strong>{formatUpokt(toBigInt(provider.revenueUpokt))}</strong>

@@ -132,6 +132,8 @@ type ProviderAggregateRow = {
   providerKey: string;
   providerLabel: string;
   providerDomain: string;
+  supplierOperatorAddress?: string;
+  supplierOwnerAddress?: string;
   serviceId: string;
   serviceName: string;
   relays: number;
@@ -227,8 +229,9 @@ let priceCache: { value: number; expiresAt: number } | null = null;
 
 type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
   totalRevenueUpokt: string;
-  providers: Array<Omit<ProviderStats, "revenueUpokt" | "chains"> & {
+  providers: Array<Omit<ProviderStats, "revenueUpokt" | "chains" | "suppliers"> & {
     revenueUpokt: string;
+    suppliers: Array<Omit<SupplierMember, "revenueUpokt"> & { revenueUpokt?: string }>;
     chains: Array<{ serviceId: string; serviceName: string; relays: number; revenueUpokt: string }>;
   }>;
   services: Array<Omit<ServiceStats, "revenueUpokt"> & { revenueUpokt: string }>;
@@ -640,6 +643,10 @@ function serializeDashboardData(data: DashboardData): SerializedDashboardCache {
     providers: data.providers.map((provider) => ({
       ...provider,
       revenueUpokt: provider.revenueUpokt.toString(),
+      suppliers: provider.suppliers.map((supplier) => ({
+        ...supplier,
+        revenueUpokt: supplier.revenueUpokt?.toString()
+      })),
       chains: provider.chains.map((chain) => ({
         ...chain,
         revenueUpokt: chain.revenueUpokt.toString()
@@ -681,6 +688,10 @@ function deserializeDashboardData(data: SerializedDashboardCache): DashboardData
     providers: data.providers.map((provider) => ({
       ...provider,
       revenueUpokt: BigInt(provider.revenueUpokt),
+      suppliers: provider.suppliers.map((supplier) => ({
+        ...supplier,
+        revenueUpokt: supplier.revenueUpokt ? BigInt(supplier.revenueUpokt) : undefined
+      })),
       chains: provider.chains.map((chain) => ({
         ...chain,
         revenueUpokt: BigInt(chain.revenueUpokt)
@@ -951,6 +962,7 @@ function buildDashboardFromProviderRows(
 ): DashboardData {
   const providerMap = new Map<string, ProviderStats>();
   const serviceMap = new Map<string, ServiceStats>();
+  const supplierChainMap = new Map<string, Set<string>>();
   let totalRelays = 0;
   let totalRevenueUpokt = 0n;
 
@@ -972,6 +984,31 @@ function buildDashboardFromProviderRows(
 
     provider.relays += row.relays;
     provider.revenueUpokt += row.revenueUpokt;
+
+    if (row.supplierOperatorAddress && row.supplierOwnerAddress) {
+      const supplier = provider.suppliers.find((entry) => entry.operatorAddress === row.supplierOperatorAddress) ?? {
+        operatorAddress: row.supplierOperatorAddress,
+        ownerAddress: row.supplierOwnerAddress,
+        domain: row.providerDomain,
+        relays: 0,
+        revenueUpokt: 0n,
+        chainCount: 0,
+        detailAvailable: true
+      };
+
+      if (!provider.suppliers.includes(supplier)) {
+        provider.suppliers.push(supplier);
+      }
+
+      supplier.relays = (supplier.relays ?? 0) + row.relays;
+      supplier.revenueUpokt = (supplier.revenueUpokt ?? 0n) + row.revenueUpokt;
+      supplier.detailAvailable = true;
+
+      const supplierKey = `${provider.providerKey}:${row.supplierOperatorAddress}`;
+      const chains = supplierChainMap.get(supplierKey) ?? new Set<string>();
+      chains.add(row.serviceId);
+      supplierChainMap.set(supplierKey, chains);
+    }
 
     let chain = provider.chains.find((entry) => entry.serviceId === row.serviceId);
     if (!chain) {
@@ -1006,10 +1043,15 @@ function buildDashboardFromProviderRows(
     const provider = providerMap.get(supplier.providerKey);
     if (!provider) continue;
 
+    if (provider.suppliers.some((entry) => entry.operatorAddress === supplier.operatorAddress)) {
+      continue;
+    }
+
     provider.suppliers.push({
       operatorAddress: supplier.operatorAddress,
       ownerAddress: supplier.ownerAddress,
-      domain: supplier.providerDomain
+      domain: supplier.providerDomain,
+      detailAvailable: false
     });
     provider.supplierCount = provider.suppliers.length;
   }
@@ -1017,7 +1059,12 @@ function buildDashboardFromProviderRows(
   const providers = Array.from(providerMap.values())
     .map((provider) => ({
       ...provider,
-      suppliers: provider.suppliers.sort((a, b) => a.operatorAddress.localeCompare(b.operatorAddress)),
+      suppliers: provider.suppliers
+        .map((supplier) => ({
+          ...supplier,
+          chainCount: supplier.detailAvailable ? supplierChainMap.get(`${provider.providerKey}:${supplier.operatorAddress}`)?.size ?? 0 : supplier.chainCount
+        }))
+        .sort((a, b) => (b.revenueUpokt ?? 0n) === (a.revenueUpokt ?? 0n) ? a.operatorAddress.localeCompare(b.operatorAddress) : (b.revenueUpokt ?? 0n) > (a.revenueUpokt ?? 0n) ? 1 : -1),
       chains: provider.chains.sort((a, b) =>
         b.revenueUpokt === a.revenueUpokt ? b.relays - a.relays : b.revenueUpokt > a.revenueUpokt ? 1 : -1
       )
@@ -1063,6 +1110,7 @@ function buildDashboard(
 ): DashboardData {
   const providerMap = new Map<string, ProviderStats>();
   const serviceMap = new Map<string, ServiceStats>();
+  const supplierChainMap = new Map<string, Set<string>>();
   let totalRelays = 0;
   let totalRevenueUpokt = 0n;
 
@@ -1097,9 +1145,25 @@ function buildDashboard(
       provider.suppliers.push({
         operatorAddress: settlement.supplierOperatorAddress,
         ownerAddress: settlement.supplierOwnerAddress,
-        domain: supplierInfo.providerDomain
+        domain: supplierInfo.providerDomain,
+        relays: 0,
+        revenueUpokt: 0n,
+        chainCount: 0,
+        detailAvailable: true
       });
       provider.supplierCount = provider.suppliers.length;
+    }
+
+    const supplier = provider.suppliers.find((entry) => entry.operatorAddress === settlement.supplierOperatorAddress);
+    if (supplier) {
+      supplier.relays = (supplier.relays ?? 0) + settlement.numRelays;
+      supplier.revenueUpokt = (supplier.revenueUpokt ?? 0n) + settlement.supplierRevenueUpokt;
+      supplier.detailAvailable = true;
+
+      const supplierKey = `${supplierInfo.providerKey}:${settlement.supplierOperatorAddress}`;
+      const chains = supplierChainMap.get(supplierKey) ?? new Set<string>();
+      chains.add(settlement.serviceId);
+      supplierChainMap.set(supplierKey, chains);
     }
 
     let chain = provider.chains.find((entry) => entry.serviceId === settlement.serviceId);
@@ -1134,7 +1198,12 @@ function buildDashboard(
   const providers = Array.from(providerMap.values())
     .map((provider) => ({
       ...provider,
-      suppliers: provider.suppliers.sort((a, b) => a.operatorAddress.localeCompare(b.operatorAddress)),
+      suppliers: provider.suppliers
+        .map((supplier) => ({
+          ...supplier,
+          chainCount: supplierChainMap.get(`${provider.providerKey}:${supplier.operatorAddress}`)?.size ?? 0
+        }))
+        .sort((a, b) => (b.revenueUpokt ?? 0n) === (a.revenueUpokt ?? 0n) ? a.operatorAddress.localeCompare(b.operatorAddress) : (b.revenueUpokt ?? 0n) > (a.revenueUpokt ?? 0n) ? 1 : -1),
       chains: provider.chains.sort((a, b) =>
         b.revenueUpokt === a.revenueUpokt ? b.relays - a.relays : b.revenueUpokt > a.revenueUpokt ? 1 : -1
       )
@@ -1226,6 +1295,8 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
         providerKey: supplier.providerKey,
         providerLabel: supplier.providerLabel,
         providerDomain: supplier.providerDomain,
+        supplierOperatorAddress: supplier.operatorAddress,
+        supplierOwnerAddress: supplier.ownerAddress,
         serviceId,
         serviceName: serviceMap[serviceId]?.name ?? serviceId,
         relays: parseNumeric(aggregate.sum?.numRelays),

@@ -344,7 +344,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
         </article>
       </section>
 
-      <section className="section-grid provider-grid-top">
+      <section className="provider-detail-grid provider-detail-grid-three provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -393,7 +393,9 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             {isPending ? <div className="insight-row"><span className="muted">Background refresh</span><strong>Updating window snapshot</strong></div> : null}
           </div>
         </article>
+      </section>
 
+      <section className="section-grid provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -422,37 +424,6 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                   </div>
                 </div>
               </Link>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel section">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Expansion Opportunities</h2>
-              <p className="section-subtitle">High-value services the provider is not currently monetizing in this window.</p>
-            </div>
-            <span className="pill">Next chains</span>
-          </div>
-
-          <div className="service-list">
-            {opportunityServices.map((service) => (
-              <div key={service.serviceId} className="service-row service-row-rich">
-                <div className="service-row-top">
-                  <div>
-                    <strong>{service.serviceName}</strong>
-                    <div className="muted mono">{service.serviceId}</div>
-                  </div>
-                  <div className="right">
-                    <strong>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
-                    <div className="muted">{formatInteger(service.providerCount)} active providers</div>
-                  </div>
-                </div>
-                <div className="provider-row-metrics">
-                  <span>{formatDecimal(service.revenuePerProvider, 1)} POKT per provider</span>
-                  <span>{formatCompactNumber(service.relays)} relays</span>
-                </div>
-              </div>
             ))}
           </div>
         </article>
@@ -492,6 +463,39 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           </table>
         </article>
 
+        <article className="panel section">
+          <div className="section-title-row">
+            <div>
+              <h2 className="section-title">Expansion Opportunities</h2>
+              <p className="section-subtitle">High-value services the provider is not currently monetizing in this window.</p>
+            </div>
+            <span className="pill">Next chains</span>
+          </div>
+
+          <div className="service-list">
+            {opportunityServices.map((service) => (
+              <div key={service.serviceId} className="service-row service-row-rich">
+                <div className="service-row-top">
+                  <div>
+                    <strong>{service.serviceName}</strong>
+                    <div className="muted mono">{service.serviceId}</div>
+                  </div>
+                  <div className="right">
+                    <strong>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
+                    <div className="muted">{formatInteger(service.providerCount)} active providers</div>
+                  </div>
+                </div>
+                <div className="provider-row-metrics">
+                  <span>{formatDecimal(service.revenuePerProvider, 1)} POKT per provider</span>
+                  <span>{formatCompactNumber(service.relays)} relays</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="provider-grid-top">
         <article className="panel section">
           <div className="section-title-row">
             <div>

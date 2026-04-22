@@ -347,6 +347,15 @@ code {
   margin-bottom: 32px;
 }
 
+.provider-detail-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.provider-detail-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .provider-head {
   display: grid;
   gap: 24px;
@@ -963,6 +972,7 @@ code {
   .hero-support-grid,
   .section-grid,
   .section-grid-visual,
+  .provider-detail-grid-three,
   .calculator-layout,
   .calculator-kpis,
   .calculator-meta-grid,

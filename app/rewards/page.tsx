@@ -1,7 +1,8 @@
 import Link from "next/link";
 
+import TimeseriesPanel from "@/app/timeseries-panel";
 import { formatCompactNumber, formatDecimal, formatInteger, formatPercent, formatUsd, formatUpokt } from "@/lib/format";
-import { getDashboardDataSafe } from "@/lib/pocket";
+import { getDashboardDataSafe, getNetworkDailyHistory } from "@/lib/pocket";
 
 export const metadata = {
   title: "Rewards | Pocket Provider Dashboard",
@@ -17,9 +18,18 @@ function getShare(part: bigint, total: bigint): number {
   return Number((part * 10_000n) / total) / 100;
 }
 
-export default function RewardsPage() {
+function movingAverage(values: number[], windowSize: number): number[] {
+  return values.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = values.slice(start, index + 1);
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  });
+}
+
+export default async function RewardsPage() {
   const result = getDashboardDataSafe("30d");
   const data = result.data;
+  const history = await getNetworkDailyHistory();
 
   if (!data) {
     return (
@@ -39,6 +49,13 @@ export default function RewardsPage() {
   const top5ProviderRewards = data.providers.slice(0, 5).reduce((sum, provider) => sum + provider.revenueUpokt, 0n);
   const top5ServiceRewards = data.services.slice(0, 5).reduce((sum, service) => sum + service.revenueUpokt, 0n);
   const rewardPerRelay = data.totalRelays === 0 ? 0 : (toPoktNumber(data.totalRevenueUpokt) / data.totalRelays) * 1000;
+  const rewardHistoryValues = history.map((point) => toPoktNumber(point.revenueUpokt));
+  const rewardHistoryAverage = movingAverage(rewardHistoryValues, 7);
+  const rewardHistoryPoints = history.map((point, index) => ({
+    label: point.day,
+    value: rewardHistoryValues[index] ?? 0,
+    secondaryValue: rewardHistoryAverage[index] ?? 0
+  }));
 
   return (
     <main className="page explorer-page">
@@ -88,6 +105,16 @@ export default function RewardsPage() {
           <span className="kpi-foot">{topService?.serviceName ?? "No service activity"}</span>
         </article>
       </section>
+
+      <TimeseriesPanel
+        title="Daily Provider Reward Flow"
+        subtitle="Provider-side rewards by settlement day, with a 7-day moving average for trend direction."
+        eyebrow="Reward Trend"
+        points={rewardHistoryPoints}
+        valueLabel="rewards"
+        formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
+        emptyText="Daily reward history is not available yet. Reward concentration tables remain available from the 30d snapshot."
+      />
 
       <section className="section-grid rewards-grid">
         <article className="panel section">

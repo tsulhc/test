@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import RevenueCalculator from "@/app/revenue-calculator";
+import TimeseriesPanel from "@/app/timeseries-panel";
 import {
   formatCompactNumber,
   formatDecimal,
@@ -13,13 +14,20 @@ import {
   formatUsd,
   formatUpokt
 } from "@/lib/format";
-import type { SerializedDashboardData, SerializedProviderStats, SerializedServiceStats, TimeWindow } from "@/lib/types";
+import type {
+  SerializedDashboardData,
+  SerializedNetworkDailyHistoryPoint,
+  SerializedProviderStats,
+  SerializedServiceStats,
+  TimeWindow
+} from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
 type DashboardViewProps = {
   initialWindow: TimeWindow;
   dataByWindow: Record<TimeWindow, SerializedDashboardData | null>;
+  networkHistory: SerializedNetworkDailyHistoryPoint[];
 };
 
 type DashboardApiResponse = SerializedDashboardData | { status: "warming" | "ready" };
@@ -53,6 +61,14 @@ function median(numbers: number[]): number {
   const sorted = [...numbers].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function movingAverage(values: number[], windowSize: number): number[] {
+  return values.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = values.slice(start, index + 1);
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  });
 }
 
 function HeroBars({ providers, window }: { providers: SerializedProviderStats[]; window: TimeWindow }) {
@@ -195,7 +211,7 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
   );
 }
 
-export default function DashboardView({ initialWindow, dataByWindow }: DashboardViewProps) {
+export default function DashboardView({ initialWindow, dataByWindow, networkHistory }: DashboardViewProps) {
   const [datasets, setDatasets] = useState<Record<TimeWindow, SerializedDashboardData | null>>(dataByWindow);
   const [window, setWindow] = useState<TimeWindow>(initialWindow);
   const [isPending, startTransition] = useTransition();
@@ -320,6 +336,13 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
     data.indexerTargetHeight != null && data.indexerProcessedHeight != null
       ? Math.max(0, data.indexerTargetHeight - data.indexerProcessedHeight)
       : null;
+  const revenueHistoryValues = networkHistory.map((point) => toPoktNumber(point.revenueUpokt));
+  const revenueHistoryAverage = movingAverage(revenueHistoryValues, 7);
+  const revenueHistoryPoints = networkHistory.map((point, index) => ({
+    label: point.day,
+    value: revenueHistoryValues[index] ?? 0,
+    secondaryValue: revenueHistoryAverage[index] ?? 0
+  }));
 
   return (
     <main className="page">
@@ -434,6 +457,16 @@ export default function DashboardView({ initialWindow, dataByWindow }: Dashboard
           <span className="kpi-foot">{formatUsd(revenuePerThousandRelaysUsd, 2)} per 1,000 relays</span>
         </article>
       </section>
+
+      <TimeseriesPanel
+        title="30-Day Market Revenue Trend"
+        subtitle="Daily provider-side revenue with a 7-day moving average to make network momentum easier to read."
+        eyebrow="Market Trend"
+        points={revenueHistoryPoints}
+        valueLabel="revenue"
+        formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
+        emptyText="Network daily history is not available yet. The snapshot metrics above remain available."
+      />
 
       <RevenueCalculator
         poktPriceUsd={data.poktPriceUsd}

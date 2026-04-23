@@ -1,7 +1,7 @@
 import DashboardView from "@/app/dashboard-view";
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardDataSafe, getDashboardSnapshot, primeDashboardRefresh } from "@/lib/pocket";
-import type { SerializedDashboardData, TimeWindow } from "@/lib/types";
+import { getDashboardDataSafe, getDashboardSnapshot, getNetworkDailyHistory, primeDashboardRefresh } from "@/lib/pocket";
+import type { SerializedDashboardData, SerializedNetworkDailyHistoryPoint, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
@@ -30,6 +30,10 @@ export default async function Home({ searchParams }: PageProps) {
     [initialWindow, initialData] as const,
     ...otherEntries
   ]) as Record<TimeWindow, SerializedDashboardData | null>;
+  const networkHistory = (await getNetworkDailyHistory()).map((point) => ({
+    ...point,
+    revenueUpokt: point.revenueUpokt.toString()
+  })) satisfies SerializedNetworkDailyHistoryPoint[];
 
-  return <DashboardView initialWindow={initialWindow} dataByWindow={dataByWindow} />;
+  return <DashboardView initialWindow={initialWindow} dataByWindow={dataByWindow} networkHistory={networkHistory} />;
 }

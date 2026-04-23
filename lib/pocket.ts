@@ -4,6 +4,7 @@ import { getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBl
 import { PROVIDER_DOMAIN_LABEL_OVERRIDES, SUPPLIER_PROVIDER_OVERRIDES } from "@/lib/provider-overrides";
 import type {
   DashboardData,
+  NetworkDailyHistoryPoint,
   ProviderDailyHistoryPoint,
   ProviderStats,
   ServiceMap,
@@ -93,6 +94,8 @@ type PoktscanProviderDailyHistoryResponse = {
   };
   errors?: Array<{ message: string }>;
 };
+
+type PoktscanNetworkDailyHistoryResponse = PoktscanProviderDailyHistoryResponse;
 
 type PoktscanClaimSettledAggregatesResponse = {
   data?: {
@@ -1607,6 +1610,65 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
     }
 
     const series: ProviderDailyHistoryPoint[] = [];
+    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+      const day = toIsoDate(cursor);
+      series.push(
+        byDay.get(day) ?? {
+          day,
+          relays: 0,
+          revenueUpokt: 0n
+        }
+      );
+    }
+
+    return series;
+  } catch {
+    return [];
+  }
+});
+
+export const getNetworkDailyHistory = cache(async (days = PROVIDER_HISTORY_DAYS): Promise<NetworkDailyHistoryPoint[]> => {
+  const end = new Date();
+  const start = addDays(end, -(days - 1));
+
+  try {
+    const response = await fetchPoktscan<PoktscanNetworkDailyHistoryResponse>(
+      `query NetworkDailyHistory($start: Date!, $end: Date!) {
+        rewards: domainServiceDailyRewards(
+          filter: {
+            day: {
+              greaterThanOrEqualTo: $start
+              lessThanOrEqualTo: $end
+            }
+          }
+        ) {
+          groupedAggregates(groupBy: [DAY]) {
+            keys
+            sum {
+              grossRewards
+              relays
+            }
+          }
+        }
+      }`,
+      {
+        start: toIsoDate(start),
+        end: toIsoDate(end)
+      }
+    );
+
+    const byDay = new Map<string, NetworkDailyHistoryPoint>();
+    for (const aggregate of response.data?.rewards?.groupedAggregates ?? []) {
+      const day = aggregate.keys?.[0];
+      if (!day) continue;
+      byDay.set(day, {
+        day,
+        relays: parseNumeric(aggregate.sum?.relays),
+        revenueUpokt: parseNumericBigInt(aggregate.sum?.grossRewards)
+      });
+    }
+
+    const series: NetworkDailyHistoryPoint[] = [];
     for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
       const day = toIsoDate(cursor);
       series.push(

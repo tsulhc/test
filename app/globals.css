@@ -638,6 +638,95 @@ code {
   text-decoration: underline;
 }
 
+.explorer-page {
+  display: grid;
+  gap: 32px;
+}
+
+.explorer-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 24px;
+  align-items: end;
+}
+
+.explorer-hero h1 {
+  margin: 16px 0 12px;
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  line-height: 1.05;
+}
+
+.explorer-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.explorer-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.explorer-summary-card strong {
+  font-family: var(--font-accent);
+  font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.explorer-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.explorer-search,
+.explorer-select {
+  display: grid;
+  gap: 8px;
+}
+
+.explorer-search input,
+.explorer-select select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg-deep);
+}
+
+.explorer-search input:focus,
+.explorer-select select:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.explorer-table-wrap {
+  overflow-x: auto;
+}
+
+.explorer-table td,
+.explorer-table th {
+  padding-right: 18px;
+  vertical-align: top;
+}
+
+.explorer-primary-link {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.explorer-empty {
+  display: grid;
+  gap: 16px;
+}
+
 .section-title {
   margin: 0;
   font-size: 1.25rem;
@@ -1086,6 +1175,9 @@ code {
   .hero-support-grid,
   .section-grid,
   .section-grid-visual,
+  .explorer-hero,
+  .explorer-summary-grid,
+  .explorer-toolbar,
   .provider-detail-grid-three,
   .calculator-layout,
   .calculator-kpis,

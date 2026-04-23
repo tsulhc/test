@@ -755,6 +755,83 @@ code {
   line-height: 1.55;
 }
 
+.timeseries-panel {
+  overflow: hidden;
+}
+
+.timeseries-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.timeseries-metrics > div {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.timeseries-metrics strong {
+  font-family: var(--font-accent);
+  font-size: clamp(1.3rem, 3vw, 2rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeseries-chart {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  min-height: 280px;
+  padding: 28px 0 0;
+}
+
+.timeseries-line {
+  position: absolute;
+  inset: 20px 0 30px;
+  width: 100%;
+  height: calc(100% - 50px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.timeseries-line path {
+  fill: none;
+  stroke: var(--vanilla);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 8px rgba(245, 200, 66, 0.24));
+}
+
+.timeseries-bar-group {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  height: 240px;
+}
+
+.timeseries-bar {
+  width: 72%;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(180deg, var(--accent), rgba(0, 194, 255, 0.3));
+  box-shadow: 0 0 16px rgba(0, 194, 255, 0.08);
+}
+
+.timeseries-bar-group span {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
 .section-title {
   margin: 0;
   font-size: 1.25rem;
@@ -1206,6 +1283,7 @@ code {
   .explorer-hero,
   .explorer-summary-grid,
   .explorer-toolbar,
+  .timeseries-metrics,
   .provider-detail-grid-three,
   .calculator-layout,
   .calculator-kpis,
@@ -1258,6 +1336,12 @@ code {
   }
 
   .provider-history-chart {
+    grid-template-columns: repeat(15, minmax(0, 1fr));
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .timeseries-chart {
     grid-template-columns: repeat(15, minmax(0, 1fr));
     overflow-x: auto;
     padding-bottom: 8px;

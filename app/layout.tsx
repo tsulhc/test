@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Kumbh_Sans } from "next/font/google";
 
 import "@/app/globals.css";
+import SiteNav from "@/app/site-nav";
 
 const kumbhSans = Kumbh_Sans({
   subsets: ["latin"],
@@ -17,7 +18,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${kumbhSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
 import type { SerializedDashboardData, SerializedServiceStats } from "@/lib/types";
 
-type SortKey = "revenue" | "relays" | "providers" | "revenuePerProvider";
+type SortKey = "revenue" | "relays" | "computeUnits" | "providers" | "revenuePerProvider";
 
 type ChainsExplorerViewProps = {
   data: SerializedDashboardData | null;
@@ -25,6 +25,8 @@ function getSortValue(service: SerializedServiceStats, sort: SortKey): number | 
       return BigInt(service.revenueUpokt);
     case "relays":
       return service.relays;
+    case "computeUnits":
+      return service.computeUnits ?? 0;
     case "providers":
       return service.providerCount;
     case "revenuePerProvider":
@@ -55,6 +57,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
       })
       .sort((a, b) => compareSortValue(getSortValue(a, sort), getSortValue(b, sort)) || a.serviceName.localeCompare(b.serviceName));
   }, [data?.services, query, sort]);
+  const totalComputeUnits = data?.services.reduce((sum, service) => sum + (service.computeUnits ?? 0), 0) ?? 0;
 
   if (!data) {
     return (
@@ -91,6 +94,10 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
             <span className="hero-highlight-label">Relays</span>
             <strong>{formatCompactNumber(data.totalRelays)}</strong>
           </article>
+          <article className="explorer-summary-card">
+            <span className="hero-highlight-label">Compute Units</span>
+            <strong>{totalComputeUnits > 0 ? formatCompactNumber(totalComputeUnits) : "n/a"}</strong>
+          </article>
         </div>
       </section>
 
@@ -105,6 +112,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
               <option value="revenue">Revenue</option>
               <option value="relays">Relays</option>
+              <option value="computeUnits">Compute units</option>
               <option value="providers">Providers</option>
               <option value="revenuePerProvider">Revenue / provider</option>
             </select>
@@ -118,6 +126,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                 <th>Chain</th>
                 <th className="right">Revenue</th>
                 <th className="right">Relays</th>
+                <th className="right">CU</th>
                 <th className="right">Providers</th>
                 <th className="right">Revenue / Provider</th>
                 <th className="right">Relay Density</th>
@@ -135,6 +144,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                     <div className="muted">{formatUsd(toPoktNumber(service.revenueUpokt) * data.poktPriceUsd, 0)}</div>
                   </td>
                   <td className="right">{formatInteger(service.relays)}</td>
+                  <td className="right">{service.computeUnits ? formatCompactNumber(service.computeUnits) : "n/a"}</td>
                   <td className="right">{formatInteger(service.providerCount)}</td>
                   <td className="right">{formatDecimal(revenuePerProvider(service), 1)} POKT</td>
                   <td className="right">{formatCompactNumber(service.relays / Math.max(service.providerCount, 1))} relays/provider</td>

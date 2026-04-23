@@ -152,6 +152,7 @@ type ProviderAggregateRow = {
   supplierOwnerAddress?: string;
   serviceId: string;
   serviceName: string;
+  computeUnitsPerRelay?: number;
   relays: number;
   revenueUpokt: bigint;
 };
@@ -160,6 +161,8 @@ type ServicesResponse = {
   service?: Array<{
     id: string;
     name: string;
+    compute_units_per_relay?: string | number | null;
+    computeUnitsPerRelay?: string | number | null;
   }>;
   pagination?: {
     next_key?: string | null;
@@ -192,6 +195,7 @@ type SettlementEvent = {
   blockTime: string;
   serviceId: string;
   serviceName: string;
+  computeUnitsPerRelay?: number;
   supplierOperatorAddress: string;
   supplierOwnerAddress: string;
   numRelays: number;
@@ -647,6 +651,12 @@ function parseNumeric(value: string | number | null | undefined): number {
   return Number(value);
 }
 
+function parseOptionalPositiveNumber(value: string | number | null | undefined): number | undefined {
+  if (value == null) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function parseNumericBigInt(value: string | number | null | undefined): bigint {
   if (value == null) return 0n;
   if (typeof value === "number") {
@@ -789,7 +799,10 @@ const getServiceMap = cache(async (): Promise<ServiceMap> => {
     const response = await fetchJson<ServicesResponse>(`${DEFAULT_REST_URL}${SERVICES_PATH}?${search.toString()}`);
 
     for (const service of response.service ?? []) {
-      services[service.id] = { name: service.name || service.id };
+      services[service.id] = {
+        name: service.name || service.id,
+        computeUnitsPerRelay: parseOptionalPositiveNumber(service.compute_units_per_relay ?? service.computeUnitsPerRelay)
+      };
     }
 
     nextKey = response.pagination?.next_key ?? "";
@@ -960,6 +973,7 @@ function parseSettlementEvent(event: RpcEvent, blockHeight: number, blockTime: s
     blockTime,
     serviceId,
     serviceName: serviceMap[serviceId]?.name ?? serviceId,
+    computeUnitsPerRelay: serviceMap[serviceId]?.computeUnitsPerRelay,
     supplierOperatorAddress: normalizeAttributeValue(attributes.supplier_operator_address),
     supplierOwnerAddress: normalizeAttributeValue(attributes.supplier_owner_address),
     numRelays: parseInteger(attributes.num_relays),
@@ -1038,12 +1052,18 @@ function buildDashboardFromProviderRows(
         serviceId: row.serviceId,
         serviceName: row.serviceName,
         relays: 0,
+        computeUnitsPerRelay: row.computeUnitsPerRelay,
+        computeUnits: 0,
         revenueUpokt: 0n
       };
       provider.chains.push(chain);
     }
 
     chain.relays += row.relays;
+    chain.computeUnitsPerRelay = chain.computeUnitsPerRelay ?? row.computeUnitsPerRelay;
+    if (row.computeUnitsPerRelay) {
+      chain.computeUnits = (chain.computeUnits ?? 0) + row.relays * row.computeUnitsPerRelay;
+    }
     chain.revenueUpokt += row.revenueUpokt;
     provider.chainCount = provider.chains.length;
     providerMap.set(row.providerKey, provider);
@@ -1052,11 +1072,17 @@ function buildDashboardFromProviderRows(
       serviceId: row.serviceId,
       serviceName: row.serviceName,
       relays: 0,
+      computeUnitsPerRelay: row.computeUnitsPerRelay,
+      computeUnits: 0,
       revenueUpokt: 0n,
       providerCount: 0
     };
 
     service.relays += row.relays;
+    service.computeUnitsPerRelay = service.computeUnitsPerRelay ?? row.computeUnitsPerRelay;
+    if (row.computeUnitsPerRelay) {
+      service.computeUnits = (service.computeUnits ?? 0) + row.relays * row.computeUnitsPerRelay;
+    }
     service.revenueUpokt += row.revenueUpokt;
     serviceMap.set(row.serviceId, service);
   }
@@ -1195,12 +1221,18 @@ function buildDashboard(
         serviceId: settlement.serviceId,
         serviceName: settlement.serviceName,
         relays: 0,
+        computeUnitsPerRelay: settlement.computeUnitsPerRelay,
+        computeUnits: 0,
         revenueUpokt: 0n
       };
       provider.chains.push(chain);
     }
 
     chain.relays += settlement.numRelays;
+    chain.computeUnitsPerRelay = chain.computeUnitsPerRelay ?? settlement.computeUnitsPerRelay;
+    if (settlement.computeUnitsPerRelay) {
+      chain.computeUnits = (chain.computeUnits ?? 0) + settlement.numRelays * settlement.computeUnitsPerRelay;
+    }
     chain.revenueUpokt += settlement.supplierRevenueUpokt;
     provider.chainCount = provider.chains.length;
     providerMap.set(supplierInfo.providerKey, provider);
@@ -1209,11 +1241,17 @@ function buildDashboard(
       serviceId: settlement.serviceId,
       serviceName: settlement.serviceName,
       relays: 0,
+      computeUnitsPerRelay: settlement.computeUnitsPerRelay,
+      computeUnits: 0,
       revenueUpokt: 0n,
       providerCount: 0
     };
 
     service.relays += settlement.numRelays;
+    service.computeUnitsPerRelay = service.computeUnitsPerRelay ?? settlement.computeUnitsPerRelay;
+    if (settlement.computeUnitsPerRelay) {
+      service.computeUnits = (service.computeUnits ?? 0) + settlement.numRelays * settlement.computeUnitsPerRelay;
+    }
     service.revenueUpokt += settlement.supplierRevenueUpokt;
     serviceMap.set(settlement.serviceId, service);
   }
@@ -1323,6 +1361,7 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
         supplierOwnerAddress: supplier.ownerAddress,
         serviceId,
         serviceName: serviceMap[serviceId]?.name ?? serviceId,
+        computeUnitsPerRelay: serviceMap[serviceId]?.computeUnitsPerRelay,
         relays: parseNumeric(aggregate.sum?.numRelays),
         revenueUpokt: parseNumericBigInt(aggregate.sum?.claimedAmount)
       });
@@ -1386,6 +1425,7 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
       providerDomain,
       serviceId,
       serviceName: serviceMap[serviceId]?.name ?? serviceId,
+      computeUnitsPerRelay: serviceMap[serviceId]?.computeUnitsPerRelay,
       relays: parseNumeric(aggregate.sum?.relays),
       revenueUpokt: parseNumericBigInt(aggregate.sum?.grossRewards)
     });

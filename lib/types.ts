@@ -4,6 +4,8 @@ export type ProviderChainStats = {
   serviceId: string;
   serviceName: string;
   relays: number;
+  computeUnits?: number;
+  computeUnitsPerRelay?: number;
   revenueUpokt: bigint;
 };
 
@@ -33,6 +35,8 @@ export type ServiceStats = {
   serviceId: string;
   serviceName: string;
   relays: number;
+  computeUnits?: number;
+  computeUnitsPerRelay?: number;
   revenueUpokt: bigint;
   providerCount: number;
 };
@@ -92,7 +96,7 @@ export type SerializedDashboardData = Omit<DashboardData, "totalRevenueUpokt" | 
   services: SerializedServiceStats[];
 };
 
-export type ServiceMap = Record<string, { name: string }>;
+export type ServiceMap = Record<string, { name: string; computeUnitsPerRelay?: number }>;
 
 export type SupplierDirectoryEntry = {
   operatorAddress: string;

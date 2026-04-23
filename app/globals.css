@@ -727,6 +727,34 @@ code {
   gap: 16px;
 }
 
+.rewards-grid {
+  margin-bottom: 0;
+}
+
+.reward-method-list {
+  display: grid;
+  gap: 16px;
+}
+
+.reward-method-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.reward-method-card strong {
+  font-size: 1.05rem;
+}
+
+.reward-method-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .section-title {
   margin: 0;
   font-size: 1.25rem;

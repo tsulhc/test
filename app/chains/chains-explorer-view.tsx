@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
@@ -136,8 +137,13 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
               {services.map((service) => (
                 <tr key={service.serviceId}>
                   <td>
-                    <strong>{service.serviceName}</strong>
+                    <Link href={`/chains/${encodeURIComponent(service.serviceId)}`} className="explorer-primary-link">
+                      {service.serviceName}
+                    </Link>
                     <div className="muted mono">{service.serviceId}</div>
+                    <Link href={`/chains/${encodeURIComponent(service.serviceId)}`} className="provider-inline-link">
+                      View details <span className="provider-link-arrow" aria-hidden="true">→</span>
+                    </Link>
                   </td>
                   <td className="right">
                     <strong>{formatUpokt(BigInt(service.revenueUpokt), 1)}</strong>

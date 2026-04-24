@@ -503,41 +503,79 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Expansion Opportunities</h2>
-              <p className="section-subtitle">Services this provider is not monetizing yet, ranked by projected reward with its current supplier footprint.</p>
+              <p className="section-subtitle">Chains not currently monetized, ranked by yield potential for your {formatInteger(currentProvider.supplierCount)} suppliers.</p>
             </div>
-            <span className="pill">Next chains</span>
+            <span className="pill">Strategic Growth</span>
           </div>
 
-          <p className="footer-note">
-            This ranking uses the provider's current footprint of <strong>{formatInteger(currentProvider.supplierCount)} suppliers</strong> against the network's known supplier count for each service. It keeps the new-provider calculator separate from existing-provider expansion decisions.
+          <div className="service-list" style={{ marginTop: '24px' }}>
+            {opportunityServices.map((service) => {
+              const scoreWidth = Math.min(100, Math.max(10, service.opportunityScore * 10));
+              const isHighYield = toPoktNumber(service.projectedRevenuePerSupplierUpokt) > toPoktNumber(currentProvider.revenueUpokt) / Math.max(currentProvider.supplierCount, 1) * 1.2;
+              const isLowComp = service.providerCount <= 5;
+              
+              return (
+                <div key={service.serviceId} className="service-row service-row-rich" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: service.opportunityScore > 7 ? 'var(--green)' : service.opportunityScore > 4 ? 'var(--accent)' : 'var(--border)' }} />
+                  
+                  <div className="service-row-top">
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                        <strong style={{ fontSize: '1.2rem' }}>{service.serviceName}</strong>
+                        <span className="mono" style={{ fontSize: '0.8rem', opacity: 0.6 }}>{service.serviceId}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {isHighYield && <span className="density density-low" style={{ background: 'rgba(0, 209, 160, 0.1)', color: 'var(--green)' }}>High Yield</span>}
+                        {isLowComp && <span className="density density-medium" style={{ background: 'rgba(0, 194, 255, 0.1)', color: 'var(--accent)' }}>Early Entry</span>}
+                        {service.selectionProbability > 0.8 && <span className="pill" style={{ fontSize: '0.7rem' }}>High Prob.</span>}
+                      </div>
+                    </div>
+                    <div className="right">
+                      <span className="hero-highlight-label" style={{ textAlign: 'right', display: 'block' }}>Est. Revenue Contribution</span>
+                      <strong className="accent-number" style={{ fontSize: '1.4rem', color: 'var(--accent)' }}>+{formatUpokt(service.projectedRevenueUpokt, 1)}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+                    <div>
+                      <span className="hero-highlight-label" style={{ fontSize: '9px', marginBottom: '8px', display: 'block' }}>Opportunity Score</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div className="hero-bar-track" style={{ flex: 1, height: '8px' }}>
+                          <div className="hero-bar-fill" style={{ 
+                            width: `${scoreWidth}%`, 
+                            background: service.opportunityScore > 7 ? 'var(--green)' : 'var(--accent)' 
+                          }} />
+                        </div>
+                        <strong style={{ fontSize: '1.1rem' }}>{formatDecimal(service.opportunityScore, 1)}</strong>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <span className="muted" style={{ fontSize: '0.8rem', display: 'block' }}>Yield/Supplier</span>
+                        <strong style={{ fontSize: '1rem' }}>{formatUpokt(service.projectedRevenuePerSupplierUpokt, 1)}</strong>
+                      </div>
+                      <div>
+                        <span className="muted" style={{ fontSize: '0.8rem', display: 'block' }}>Selection Prob.</span>
+                        <strong style={{ fontSize: '1rem' }}>{formatPercent(service.selectionProbability, 0)}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="provider-row-metrics" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                    <span><strong>{formatInteger(service.supplierCount)}</strong> current suppliers</span>
+                    <span><strong>{formatInteger(service.providerCount)}</strong> domains</span>
+                    <span><strong>{formatCompactNumber(service.relays)}</strong> daily relays</span>
+                    <span><strong>{formatPercent(service.expectedSharePercent, 1)}</strong> modeled share</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="footer-note" style={{ background: 'var(--panel-soft)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+            <strong>Intelligence Note:</strong> Rankings are calculated by simulating your <strong>{formatInteger(currentProvider.supplierCount)} suppliers</strong> across all unmonetized chains. High Yield indicates services where projected revenue per unit exceeds your current average.
           </p>
-
-          <div className="service-list">
-            {opportunityServices.map((service) => (
-              <div key={service.serviceId} className="service-row service-row-rich">
-                <div className="service-row-top">
-                  <div>
-                    <strong>{service.serviceName}</strong>
-                    <div className="muted mono">{service.serviceId}</div>
-                  </div>
-                  <div className="right">
-                    <strong>{formatUpokt(service.projectedRevenueUpokt, 1)}</strong>
-                    <div className="muted">Projected with {formatInteger(currentProvider.supplierCount)} suppliers</div>
-                  </div>
-                </div>
-                <div className="provider-row-metrics">
-                  <span>{formatDecimal(service.opportunityScore, 1)} opportunity score</span>
-                  <span>{formatUpokt(service.projectedRevenuePerSupplierUpokt, 1)} per supplier</span>
-                  <span>{formatPercent(service.selectionProbability, 1)} chance to land at least one 30m session slot</span>
-                  <span>{formatInteger(service.supplierCount)} network suppliers already on this chain</span>
-                  <span>{formatPercent(service.expectedSharePercent, 1)} modeled reward share</span>
-                  <span>{formatInteger(service.providerCount)} active providers</span>
-                  <span>{formatCompactNumber(service.relays)} relays</span>
-                  {service.computeUnits ? <span>{formatCompactNumber(service.computeUnits)} CUs</span> : null}
-                </div>
-              </div>
-            ))}
-          </div>
         </article>
       </section>
 

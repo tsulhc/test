@@ -101,32 +101,41 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
   }
 
   return (
-    <section className="panel section calculator-section">
+    <section className="panel section calculator-section" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div style={{ 
+        position: 'absolute', 
+        bottom: '-10%', 
+        left: '-5%', 
+        width: '30%', 
+        height: '40%', 
+        background: 'radial-gradient(circle, rgba(0, 133, 255, 0.03) 0%, transparent 70%)',
+        pointerEvents: 'none'
+      }} />
+
       <div className="section-title-row calculator-title-row">
         <div>
           <h2 className="section-title">Project Your Growth</h2>
           <p className="section-subtitle">
-            Model your entry with PNF-bootstrapped incentives and calculate projected revenue based on current network demand.
+            Model your market entry with Foundation-backed incentives and real network demand.
           </p>
         </div>
-        <span className="pill">Startup Incentives</span>
+        <span className="pill">Growth Simulator</span>
       </div>
 
       <div className="calculator-layout">
         <div className="calculator-summary">
-          <div className="calculator-assumption panel panel-inset">
+          <div className="calculator-assumption panel-inset" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
             <div>
-              <span className="hero-highlight-label">PNF is ready to support you</span>
-              <strong className="accent-number">15 Foundation-covered suppliers</strong>
-              <p>
-                The calculator starts from the Foundation assumption of <strong>15 free suppliers</strong>. It also uses a
-                simple Pocket session model: sessions last <strong>{SESSION_DURATION_MINUTES} minutes</strong> and only <strong>{SESSION_SUPPLIER_SLOTS} suppliers</strong> are selected to receive traffic in each session.
-                You can change your planned supplier count below.
+              <span className="hero-highlight-label">Foundation Support</span>
+              <strong style={{ display: 'block', margin: '8px 0', fontSize: '1.5rem', color: 'var(--accent)' }}>15 Subsidized Suppliers</strong>
+              <p style={{ fontSize: '0.9rem' }}>
+                Pocket Network Foundation provides <strong>15 free suppliers</strong> to bootstrap new providers. 
+                Our model assumes <strong>{SESSION_SUPPLIER_SLOTS} slots</strong> per <strong>{formatInteger(SESSION_DURATION_MINUTES)}m session</strong>.
               </p>
             </div>
 
             <label className="calculator-input-group">
-              <span className="hero-highlight-label">Planned suppliers</span>
+              <span className="hero-highlight-label">Total Suppliers</span>
               <input
                 type="number"
                 min={0}
@@ -140,80 +149,74 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
 
           <div className="calculator-kpis">
             <article className="calculator-kpi-card">
-              <span className="kpi-label">Addressable Revenue Pool</span>
-              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
-              <span className="kpi-foot">Aggregated demand across selected chains</span>
+              <span className="kpi-label">Market Revenue Pool</span>
+              <strong className="calculator-kpi-value accent-number">{formatUpokt(selectedRevenueUpokt, 1)}</strong>
+              <span className="kpi-foot">Aggregated demand in window</span>
             </article>
 
-            <article className="calculator-kpi-card calculator-kpi-card-accent">
-              <span className="kpi-label">Market Entry Projection</span>
-              <strong className="kpi-value calculator-kpi-value accent-number">{formatUpokt(projectedEntryUpokt, 1)}</strong>
-              <span className="kpi-foot">
-                Session-aware estimate based on selected chains and planned supplier count
+            <article className="calculator-kpi-card calculator-kpi-card-accent" style={{ background: 'linear-gradient(135deg, rgba(0, 194, 255, 0.1) 0%, transparent 100%)' }}>
+              <span className="kpi-label" style={{ color: 'var(--accent)' }}>Projected Daily Earnings</span>
+              <strong className="calculator-kpi-value accent-number" style={{ color: 'var(--accent)', textShadow: '0 0 20px rgba(0, 194, 255, 0.2)' }}>
+                {formatUpokt(projectedEntryUpokt, 1)}
+              </strong>
+              <span className="kpi-foot" style={{ color: 'var(--text)' }}>
+                Session-aware revenue estimate
               </span>
             </article>
           </div>
 
           <div className="calculator-meta-grid">
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Target Chains</span>
-              <strong className="accent-number">{formatInteger(selectedChainCount)}</strong>
-              <p>{formatInteger(coveredChainCount)} of them receive at least one modeled supplier.</p>
+              <span className="hero-highlight-label">Target Footprint</span>
+              <strong className="accent-number">{formatInteger(selectedChainCount)} chains</strong>
+              <p>{formatInteger(coveredChainCount)} chains covered by modeled traffic.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Supplier Plan</span>
-              <strong className="accent-number">{formatInteger(supplierCount)}</strong>
+              <span className="hero-highlight-label">Supplier Mix</span>
+              <strong className="accent-number">{formatInteger(supplierCount)} units</strong>
               <p>
-                {formatInteger(foundationCoveredSuppliers)} Foundation-covered, {formatInteger(selfFundedSuppliers)} self-funded.
+                {formatInteger(foundationCoveredSuppliers)} subsidized, {formatInteger(selfFundedSuppliers)} self-funded.
               </p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Session Model</span>
-              <strong className="accent-number">{formatInteger(SESSION_SUPPLIER_SLOTS)}</strong>
-              <p>Selected suppliers per {formatInteger(SESSION_DURATION_MINUTES)}-minute session.</p>
-            </div>
-
-            <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Relay Demand</span>
+              <span className="hero-highlight-label">Demand Intensity</span>
               <strong className="accent-number">{formatCompactNumber(selectedRelays)}</strong>
-              <p>Aggregated relays across the included chains.</p>
+              <p>Total relays across selected chains.</p>
             </div>
 
             <div className="calculator-meta-card">
-              <span className="hero-highlight-label">Efficiency Target</span>
-              <strong className="accent-number">{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
-              <p>Projected revenue per supplier in your allocation.</p>
+              <span className="hero-highlight-label">Efficiency</span>
+              <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
+              <p>Projected revenue per active supplier.</p>
             </div>
           </div>
 
-          <p className="footer-note">
-            <strong>Methodology:</strong> The default model assumes 15 free suppliers from the Foundation. Your planned
-            suppliers are allocated across the selected chains, prioritizing the most profitable ones first. For each chain,
-            the calculator uses the observed revenue and estimates your expected session share as <code>suppliers / max({SESSION_SUPPLIER_SLOTS}, active_providers)</code>, using active provider domains as a
-            simple proxy for the competitive supplier pool.
+          <p className="footer-note" style={{ opacity: 0.8 }}>
+            <strong>Simulation Logic:</strong> Your suppliers are distributed across selected chains, prioritizing high-yield services. 
+            Expected share is modeled as <code>suppliers / max({SESSION_SUPPLIER_SLOTS}, active_providers)</code>.
           </p>
-
         </div>
 
-        <div className="calculator-checklist panel panel-inset">
+        <div className="calculator-checklist panel-inset" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
           <div className="section-title-row compact-gap">
             <div>
-              <h3 className="section-title">Chain checklist</h3>
-              <p className="section-subtitle">Default selection: the 10 most profitable chains in the current window.</p>
+              <h3 className="section-title" style={{ fontSize: '1.2rem' }}>Service Selection</h3>
+              <p className="section-subtitle" style={{ fontSize: '0.85rem' }}>Select chains to include in your deployment.</p>
             </div>
-            <div className="calculator-actions">
-              <button type="button" className="calculator-action" onClick={resetTopChains}>
-                Top 10 default
-              </button>
-              <button type="button" className="calculator-action" onClick={() => setSelectedIds(services.map((service) => service.serviceId))}>
-                Select all
-              </button>
-              <button type="button" className="calculator-action" onClick={() => setSelectedIds([])}>
-                Clear all
-              </button>
-            </div>
+          </div>
+          
+          <div className="calculator-actions" style={{ marginBottom: '20px' }}>
+            <button type="button" className="calculator-action" onClick={resetTopChains} style={{ background: 'var(--panel-strong)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+              Top 10 Default
+            </button>
+            <button type="button" className="calculator-action" onClick={() => setSelectedIds(services.map((service) => service.serviceId))}>
+              Select All
+            </button>
+            <button type="button" className="calculator-action" onClick={() => setSelectedIds([])} style={{ background: 'transparent', color: 'var(--muted)', boxShadow: 'none' }}>
+              Clear
+            </button>
           </div>
 
           <div className="calculator-list">
@@ -229,11 +232,11 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
                   />
                   <div className="calculator-item-copy">
                     <div className="calculator-item-head">
-                      <strong>{service.serviceName}</strong>
-                      <span className="mono">{service.serviceId}</span>
+                      <strong style={{ color: checked ? 'var(--text)' : 'var(--muted)' }}>{service.serviceName}</strong>
+                      <span className="mono" style={{ fontSize: '0.7rem' }}>{service.serviceId}</span>
                     </div>
                     <div className="calculator-item-meta">
-                      <span>{formatUpokt(BigInt(service.revenueUpokt), 1)}</span>
+                      <span style={{ color: 'var(--accent)' }}>{formatUpokt(BigInt(service.revenueUpokt), 1)}</span>
                       <span>{formatInteger(service.providerCount)} providers</span>
                       <span>{formatCompactNumber(service.relays)} relays</span>
                     </div>

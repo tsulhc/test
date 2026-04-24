@@ -46,49 +46,71 @@ export default function TimeseriesPanel({
   const linePath = buildLinePath(points, maxValue);
 
   return (
-    <section className="panel section timeseries-panel">
+    <section className="panel section timeseries-panel" style={{ position: 'relative' }}>
       <div className="section-title-row">
         <div>
           <span className="eyebrow eyebrow-ghost">{eyebrow}</span>
           <h2 className="section-title">{title}</h2>
           <p className="section-subtitle">{subtitle}</p>
         </div>
-        <span className="pill">{points.length}d</span>
+        <span className="pill" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}>Last {points.length} Days</span>
       </div>
 
       {hasData ? (
         <>
           <div className="timeseries-metrics">
-            <div>
-              <span className="hero-highlight-label">Latest day</span>
-              <strong>{latestPoint ? formatValue(latestPoint.value) : "n/a"}</strong>
+            <div className="panel-inset" style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+              <span className="hero-highlight-label">Latest Snapshot</span>
+              <strong style={{ color: 'var(--accent)' }}>{latestPoint ? formatValue(latestPoint.value) : "n/a"}</strong>
             </div>
-            <div>
-              <span className="hero-highlight-label">Total {valueLabel}</span>
+            <div className="panel-inset" style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+              <span className="hero-highlight-label">Window Total</span>
               <strong>{formatValue(totalValue)}</strong>
             </div>
-            <div>
-              <span className="hero-highlight-label">Day change</span>
-              <strong>{latestChange === 0 ? "n/a" : `${latestChange > 0 ? "+" : ""}${latestChange.toFixed(1)}%`}</strong>
+            <div className="panel-inset" style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+              <span className="hero-highlight-label">Day Momentum</span>
+              <strong style={{ color: latestChange > 0 ? 'var(--green)' : latestChange < 0 ? 'var(--red)' : 'var(--text)' }}>
+                {latestChange === 0 ? "Neutral" : `${latestChange > 0 ? "+" : ""}${latestChange.toFixed(1)}%`}
+              </strong>
             </div>
           </div>
 
           <div className="timeseries-chart" aria-label={`${title} chart`}>
-            <svg className="timeseries-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <svg className="timeseries-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ opacity: 0.8 }}>
               <path d={linePath} />
             </svg>
             {points.map((point) => {
-              const height = maxValue === 0 ? 2 : Math.max(2, Math.round((point.value / maxValue) * 100));
+              const height = maxValue === 0 ? 2 : Math.max(4, Math.round((point.value / maxValue) * 100));
+              const isActive = point === latestPoint;
+              
               return (
                 <div key={point.label} className="timeseries-bar-group" title={`${point.label}: ${formatValue(point.value)}`}>
-                  <div className="timeseries-bar" style={{ height: `${height}%` }} />
-                  <span>{point.label.slice(5)}</span>
+                  <div 
+                    className="timeseries-bar" 
+                    style={{ 
+                      height: `${height}%`,
+                      background: isActive ? 'var(--accent)' : undefined,
+                      boxShadow: isActive ? '0 0 15px rgba(0, 194, 255, 0.4)' : undefined
+                    }} 
+                  />
+                  <span style={{ fontWeight: isActive ? 800 : 500, color: isActive ? 'var(--text)' : 'var(--muted)' }}>
+                    {point.label.slice(5)}
+                  </span>
                 </div>
               );
             })}
           </div>
 
-          <p className="footer-note">Bars show daily {valueLabel}. The line tracks a 7-day moving average for momentum.</p>
+          <p className="footer-note" style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.8rem' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginRight: '24px' }}>
+              <span style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'linear-gradient(to bottom, var(--accent), rgba(0, 194, 255, 0.3))' }} />
+              Daily {valueLabel}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '20px', height: '3px', borderRadius: '2px', background: 'var(--vanilla)' }} />
+              7-Day Moving Average
+            </span>
+          </p>
         </>
       ) : (
         <p className="footer-note">{emptyText}</p>

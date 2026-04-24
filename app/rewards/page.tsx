@@ -59,49 +59,61 @@ export default async function RewardsPage() {
 
   return (
     <main className="page explorer-page">
-      <section className="panel section explorer-hero">
+      <section className="panel section explorer-hero" style={{ overflow: 'hidden', position: 'relative' }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: '-10%', 
+          right: '-5%', 
+          width: '30%', 
+          height: '120%', 
+          background: 'radial-gradient(circle, rgba(0, 194, 255, 0.05) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+        
         <div>
-          <span className="eyebrow">Rewards</span>
-          <h1>Understand provider-side Pocket rewards.</h1>
-          <p className="section-subtitle">
-            This view focuses on the reward amount that is actually attributable to suppliers, then rolls it up by provider domain and service for a 30d market view.
+          <span className="eyebrow">Settlement Analysis</span>
+          <h1>Provider Rewards.</h1>
+          <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
+            Inspect finalized provider-side rewards across the ecosystem. Analyze concentration, 
+            unit yields, and settlement methodology.
           </p>
         </div>
+        
         <div className="explorer-summary-grid">
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Provider Rewards</span>
-            <strong>{formatUpokt(data.totalRevenueUpokt, 1)}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Cumulative Rewards</span>
+            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(data.totalRevenueUpokt, 1)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">USD Estimate</span>
-            <strong>{formatUsd(toPoktNumber(data.totalRevenueUpokt) * data.poktPriceUsd, 0)}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">USD Equivalent</span>
+            <strong style={{ color: 'var(--text)' }}>{formatUsd(toPoktNumber(data.totalRevenueUpokt) * data.poktPriceUsd, 0)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Reward / 1k Relays</span>
-            <strong>{formatDecimal(rewardPerRelay, 2)} POKT</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Yield / 1k Relays</span>
+            <strong style={{ color: 'var(--green)' }}>{formatDecimal(rewardPerRelay, 2)} POKT</strong>
           </article>
         </div>
       </section>
 
       <section className="kpi-grid kpi-grid-strong rewards-kpi-grid">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Average provider reward</span>
+          <span className="kpi-label">Average Provider Reward</span>
           <span className="kpi-value">{formatDecimal(averageReward, 1)} POKT</span>
-          <span className="kpi-foot">Across {formatInteger(data.activeProviders)} active providers</span>
+          <span className="kpi-foot">Across {formatInteger(data.activeProviders)} active domains</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Top provider share</span>
+          <span className="kpi-label">Top Leader Share</span>
           <span className="kpi-value">{topProvider ? formatPercent(getShare(topProvider.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
           <span className="kpi-foot">{topProvider?.providerLabel ?? "No provider activity"}</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Top 5 provider share</span>
+          <span className="kpi-label">Top 5 Concentration</span>
           <span className="kpi-value">{formatPercent(getShare(top5ProviderRewards, data.totalRevenueUpokt), 1)}</span>
-          <span className="kpi-foot">Reward concentration among market leaders</span>
+          <span className="kpi-foot">Market share of top 5 entities</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Top service share</span>
-          <span className="kpi-value">{topService ? formatPercent(getShare(topService.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
+          <span className="kpi-label">Top Service Share</span>
+          <span className="kpi-value" style={{ color: 'var(--accent)' }}>{topService ? formatPercent(getShare(topService.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
           <span className="kpi-foot">{topService?.serviceName ?? "No service activity"}</span>
         </article>
       </section>
@@ -121,25 +133,25 @@ export default async function RewardsPage() {
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Reward Methodology</h2>
-              <p className="section-subtitle">How the dashboard defines provider-side revenue.</p>
+              <p className="section-subtitle">Defining provider-side finalized revenue.</p>
             </div>
-            <span className="pill">EventClaimSettled</span>
+            <span className="pill">Settlement</span>
           </div>
           <div className="reward-method-list">
-            <div className="reward-method-card">
-              <span className="hero-highlight-label">Source event</span>
-              <strong>EndBlock settlement events</strong>
-              <p>The fallback path reads <code>pocket.tokenomics.EventClaimSettled</code> from block results, not transaction events.</p>
+            <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              <span className="hero-highlight-label">Source Protocol Event</span>
+              <strong style={{ fontSize: '1.1rem' }}>EndBlock Claim Settlements</strong>
+              <p style={{ fontSize: '0.85rem' }}>Finalized revenue is extracted from <code>pocket.tokenomics.EventClaimSettled</code> results emitted by the protocol during block finalization.</p>
             </div>
-            <div className="reward-method-card">
-              <span className="hero-highlight-label">Supplier revenue</span>
-              <strong>Supplier reward distribution entries</strong>
-              <p>Revenue is derived from supplier reward entries in <code>reward_distribution_detailed</code>, not from gross minted value.</p>
+            <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              <span className="hero-highlight-label">Attribution Model</span>
+              <strong style={{ fontSize: '1.1rem' }}>Supplier-Direct Allocation</strong>
+              <p style={{ fontSize: '0.85rem' }}>The dashboard captures the specific share of the minted POKT that is allocated directly to suppliers, excluding other distribution targets.</p>
             </div>
-            <div className="reward-method-card">
-              <span className="hero-highlight-label">Current rollup</span>
-              <strong>Provider domain aggregation</strong>
-              <p>Supplier operators are grouped into provider domains so new providers can benchmark market entities rather than individual nodes only.</p>
+            <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              <span className="hero-highlight-label">Market Rollup</span>
+              <strong style={{ fontSize: '1.1rem' }}>Provider Domain Grouping</strong>
+              <p style={{ fontSize: '0.85rem' }}>Individual supplier operators are aggregated into domain-level groups to provide a clear benchmark for professional market participants.</p>
             </div>
           </div>
         </article>
@@ -147,16 +159,28 @@ export default async function RewardsPage() {
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Reward Concentration</h2>
-              <p className="section-subtitle">Where provider-side rewards are most concentrated.</p>
+              <h2 className="section-title">Market Concentration</h2>
+              <p className="section-subtitle">Finalized 30d reward distribution profile.</p>
             </div>
-            <span className="pill">30d</span>
+            <span className="pill">Concentration</span>
           </div>
           <div className="insight-list">
-            <div className="insight-row"><span className="muted">Top 5 providers</span><strong>{formatUpokt(top5ProviderRewards, 1)}</strong></div>
-            <div className="insight-row"><span className="muted">Top 5 services</span><strong>{formatUpokt(top5ServiceRewards, 1)}</strong></div>
-            <div className="insight-row"><span className="muted">Total relays rewarded</span><strong>{formatCompactNumber(data.totalRelays)}</strong></div>
-            <div className="insight-row"><span className="muted">Data source</span><strong>{data.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong></div>
+            <div className="insight-row">
+              <span className="muted">Top 5 Groups Cumulative</span>
+              <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatUpokt(top5ProviderRewards, 1)}</strong>
+            </div>
+            <div className="insight-row">
+              <span className="muted">Top 5 Services Cumulative</span>
+              <strong className="accent-number">{formatUpokt(top5ServiceRewards, 1)}</strong>
+            </div>
+            <div className="insight-row">
+              <span className="muted">Settled Relay Volume</span>
+              <strong>{formatCompactNumber(data.totalRelays)} relays</strong>
+            </div>
+            <div className="insight-row">
+              <span className="muted">Intelligence Source</span>
+              <strong style={{ color: 'var(--green)' }}>{data.dataSource === "poktscan" ? "Poktscan Verified" : "Direct Node Sync"}</strong>
+            </div>
           </div>
         </article>
       </section>
@@ -165,63 +189,81 @@ export default async function RewardsPage() {
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Top Rewarded Providers</h2>
-              <p className="section-subtitle">Provider domains capturing the largest reward pools.</p>
+              <h2 className="section-title">Top Earning Providers</h2>
+              <p className="section-subtitle">Domains capturing largest finalized reward pools.</p>
             </div>
-            <Link href="/providers" className="calculator-action">Explore Providers</Link>
+            <Link href="/providers" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
+              Registry →
+            </Link>
           </div>
-          <table className="mini-table">
-            <thead>
-              <tr>
-                <th>Provider</th>
-                <th className="right">Rewards</th>
-                <th className="right">Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.providers.slice(0, 8).map((provider) => (
-                <tr key={provider.providerKey}>
-                  <td>
-                    <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=30d`} className="explorer-primary-link">{provider.providerLabel}</Link>
-                    <div className="muted mono">{provider.providerDomain}</div>
-                  </td>
-                  <td className="right">{formatUpokt(provider.revenueUpokt, 1)}</td>
-                  <td className="right">{formatPercent(getShare(provider.revenueUpokt, data.totalRevenueUpokt), 1)}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>Provider Entity</th>
+                  <th className="right">Rewards (30d)</th>
+                  <th className="right">Market Mix</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.providers.slice(0, 10).map((provider) => (
+                  <tr key={provider.providerKey}>
+                    <td>
+                      <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=30d`} className="explorer-primary-link">
+                        {provider.providerLabel}
+                      </Link>
+                      <div className="muted mono" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{provider.providerDomain}</div>
+                    </td>
+                    <td className="right">
+                      <strong className="accent-number">{formatUpokt(provider.revenueUpokt, 1)}</strong>
+                    </td>
+                    <td className="right" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      {formatPercent(getShare(provider.revenueUpokt, data.totalRevenueUpokt), 1)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </article>
 
         <article className="panel section">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Top Rewarded Chains</h2>
-              <p className="section-subtitle">Services generating the largest supplier reward pools.</p>
+              <h2 className="section-title">Top Earning Chains</h2>
+              <p className="section-subtitle">Services driving highest provider-side monetization.</p>
             </div>
-            <Link href="/chains" className="calculator-action">Explore Chains</Link>
+            <Link href="/chains" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
+              Chains →
+            </Link>
           </div>
-          <table className="mini-table">
-            <thead>
-              <tr>
-                <th>Chain</th>
-                <th className="right">Rewards</th>
-                <th className="right">Providers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.services.slice(0, 8).map((service) => (
-                <tr key={service.serviceId}>
-                  <td>
-                    <strong>{service.serviceName}</strong>
-                    <div className="muted mono">{service.serviceId}</div>
-                  </td>
-                  <td className="right">{formatUpokt(service.revenueUpokt, 1)}</td>
-                  <td className="right">{formatInteger(service.providerCount)}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>Service Identity</th>
+                  <th className="right">Final Rewards</th>
+                  <th className="right">Participants</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.services.slice(0, 10).map((service) => (
+                  <tr key={service.serviceId}>
+                    <td>
+                      <strong style={{ fontSize: '1.05rem' }}>{service.serviceName}</strong>
+                      <div className="muted mono" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{service.serviceId}</div>
+                    </td>
+                    <td className="right">
+                      <strong className="accent-number">{formatUpokt(service.revenueUpokt, 1)}</strong>
+                    </td>
+                    <td className="right">
+                      {formatInteger(service.providerCount)} domains
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </article>
       </section>
     </main>

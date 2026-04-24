@@ -37,6 +37,7 @@ export type ServiceStats = {
   relays: number;
   computeUnits?: number;
   computeUnitsPerRelay?: number;
+  supplierCount?: number;
   revenueUpokt: bigint;
   providerCount: number;
 };

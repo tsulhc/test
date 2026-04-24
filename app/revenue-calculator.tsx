@@ -3,6 +3,12 @@
 import { useMemo, useState } from "react";
 
 import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
+import {
+  allocateSuppliersByMarginalReturn,
+  buildAllocatedServiceOpportunity,
+  DEFAULT_NEW_PROVIDER_SUPPLIERS,
+  SESSION_SUPPLIER_SLOTS
+} from "@/lib/opportunities";
 
 type CalculatorService = {
   serviceId: string;
@@ -10,6 +16,7 @@ type CalculatorService = {
   relays: number;
   revenueUpokt: string;
   providerCount: number;
+  supplierCount?: number;
 };
 
 type RevenueCalculatorProps = {
@@ -17,10 +24,9 @@ type RevenueCalculatorProps = {
   services: CalculatorService[];
 };
 
-const FREE_SUPPLIER_BUDGET = 15;
+const FREE_SUPPLIER_BUDGET = DEFAULT_NEW_PROVIDER_SUPPLIERS;
 const DEFAULT_SELECTED_CHAIN_COUNT = 10;
 const SESSION_DURATION_MINUTES = 30;
-const SESSION_SUPPLIER_SLOTS = 50;
 
 function clampSupplierCount(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -43,52 +49,23 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
   }, [selectedIds, services]);
 
   const supplierAllocation = useMemo(() => {
-    const allocation = new Map<string, number>();
-    if (selectedServices.length === 0 || supplierCount === 0) {
-      return allocation;
-    }
-
-    for (const service of selectedServices) {
-      allocation.set(service.serviceId, 0);
-    }
-
-    let remainingSuppliers = supplierCount;
-
-    for (const service of selectedServices) {
-      if (remainingSuppliers === 0) {
-        break;
-      }
-
-      allocation.set(service.serviceId, 1);
-      remainingSuppliers -= 1;
-    }
-
-    for (let index = 0; index < remainingSuppliers; index += 1) {
-      const service = selectedServices[index % selectedServices.length];
-      allocation.set(service.serviceId, (allocation.get(service.serviceId) ?? 0) + 1);
-    }
-
-    return allocation;
+    return allocateSuppliersByMarginalReturn(selectedServices, supplierCount);
   }, [selectedServices, supplierCount]);
 
   const selectedRevenueUpokt = selectedServices.reduce((sum, service) => sum + BigInt(service.revenueUpokt), 0n);
   const selectedRelays = selectedServices.reduce((sum, service) => sum + service.relays, 0);
-  const projectedEntryUpokt = selectedServices.reduce((sum, service) => {
-    const allocatedSuppliers = supplierAllocation.get(service.serviceId) ?? 0;
-    if (allocatedSuppliers === 0) {
-      return sum;
-    }
-
-    const effectiveCompetitivePool = Math.max(SESSION_SUPPLIER_SLOTS, service.providerCount);
-    const modeledShareNumerator = Math.min(allocatedSuppliers, effectiveCompetitivePool);
-
-    return sum + (BigInt(service.revenueUpokt) * BigInt(modeledShareNumerator)) / BigInt(effectiveCompetitivePool);
-  }, 0n);
+  const serviceOpportunities = selectedServices.map((service) =>
+    buildAllocatedServiceOpportunity(service, supplierCount, supplierAllocation.get(service.serviceId) ?? 0)
+  );
+  const projectedEntryUpokt = serviceOpportunities.reduce((sum, service) => sum + service.projectedRevenueUpokt, 0n);
   const selectedChainCount = selectedServices.length;
   const coveredChainCount = selectedServices.filter((service) => (supplierAllocation.get(service.serviceId) ?? 0) > 0).length;
   const foundationCoveredSuppliers = Math.min(supplierCount, FREE_SUPPLIER_BUDGET);
   const selfFundedSuppliers = Math.max(0, supplierCount - FREE_SUPPLIER_BUDGET);
   const entryPerSupplierUpokt = supplierCount === 0 ? 0n : projectedEntryUpokt / BigInt(supplierCount);
+  const averageSelectionProbability = serviceOpportunities.length === 0
+    ? 0
+    : serviceOpportunities.reduce((sum, service) => sum + service.selectionProbability, 0) / serviceOpportunities.length;
 
   function toggleService(serviceId: string) {
     setSelectedIds((current) =>
@@ -127,7 +104,7 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           <div className="calculator-assumption panel-inset" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
             <div>
               <span className="hero-highlight-label">Foundation Support</span>
-              <strong style={{ display: 'block', margin: '8px 0', fontSize: '1.5rem', color: 'var(--accent)' }}>15 Subsidized Suppliers</strong>
+             <strong style={{ display: 'block', margin: '8px 0', fontSize: '1.5rem', color: 'var(--accent)' }}>15 Subsidized Suppliers</strong>
               <p style={{ fontSize: '0.9rem' }}>
                 Pocket Network Foundation provides <strong>15 free suppliers</strong> to bootstrap new providers. 
                 Our model assumes <strong>{SESSION_SUPPLIER_SLOTS} slots</strong> per <strong>{formatInteger(SESSION_DURATION_MINUTES)}m session</strong>.
@@ -191,11 +168,17 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
               <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatUpokt(entryPerSupplierUpokt, 1)}</strong>
               <p>Projected revenue per active supplier.</p>
             </div>
+
+            <div className="calculator-meta-card">
+              <span className="hero-highlight-label">Selection Odds</span>
+              <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatDecimal(averageSelectionProbability, 0)}%</strong>
+              <p>Average chance of landing at least one 30m session slot on covered chains.</p>
+            </div>
           </div>
 
           <p className="footer-note" style={{ opacity: 0.8 }}>
             <strong>Simulation Logic:</strong> Your suppliers are distributed across selected chains, prioritizing high-yield services. 
-            Expected share is modeled as <code>suppliers / max({SESSION_SUPPLIER_SLOTS}, active_providers)</code>.
+            Competition is modeled against the real supplier count already active on each service, while the 15-supplier Foundation assumption remains specific to new-provider onboarding.
           </p>
         </div>
 
@@ -238,6 +221,7 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
                     <div className="calculator-item-meta">
                       <span style={{ color: 'var(--accent)' }}>{formatUpokt(BigInt(service.revenueUpokt), 1)}</span>
                       <span>{formatInteger(service.providerCount)} providers</span>
+                      <span>{formatInteger(service.supplierCount ?? 0)} suppliers</span>
                       <span>{formatCompactNumber(service.relays)} relays</span>
                     </div>
                   </div>

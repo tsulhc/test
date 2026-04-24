@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
+import { buildAllocatedServiceOpportunity, DEFAULT_NEW_PROVIDER_SUPPLIERS } from "@/lib/opportunities";
 import type { SerializedDashboardData, SerializedServiceStats } from "@/lib/types";
 
-type SortKey = "revenue" | "relays" | "computeUnits" | "providers" | "suppliers" | "revenuePerProvider";
+type SortKey = "revenue" | "relays" | "computeUnits" | "providers" | "suppliers" | "revenuePerProvider" | "opportunity";
 
 type ChainsExplorerViewProps = {
   data: SerializedDashboardData | null;
@@ -18,6 +19,10 @@ function toPoktNumber(value: string): number {
 
 function revenuePerProvider(service: SerializedServiceStats): number {
   return toPoktNumber(service.revenueUpokt) / Math.max(service.providerCount, 1);
+}
+
+function onboardingOpportunityScore(service: SerializedServiceStats): number {
+  return buildAllocatedServiceOpportunity(service, DEFAULT_NEW_PROVIDER_SUPPLIERS, DEFAULT_NEW_PROVIDER_SUPPLIERS).opportunityScore;
 }
 
 function getSortValue(service: SerializedServiceStats, sort: SortKey): number | bigint {
@@ -34,6 +39,8 @@ function getSortValue(service: SerializedServiceStats, sort: SortKey): number | 
       return service.supplierCount ?? 0;
     case "revenuePerProvider":
       return revenuePerProvider(service);
+    case "opportunity":
+      return onboardingOpportunityScore(service);
   }
 }
 
@@ -49,7 +56,7 @@ function compareSortValue(a: number | bigint, b: number | bigint): number {
 
 export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortKey>("revenue");
+  const [sort, setSort] = useState<SortKey>("opportunity");
 
   const services = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -136,6 +143,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
           <div className="explorer-select">
             <span className="hero-highlight-label">Sort Objective</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
+              <option value="opportunity">Entry Opportunity</option>
               <option value="revenue">Total Revenue</option>
               <option value="relays">Relay Volume</option>
               <option value="providers">Provider Density</option>
@@ -154,12 +162,16 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                 <th className="right">Revenue (30d)</th>
                 <th className="right">Final Relays</th>
                 <th className="right">Domains</th>
+                <th className="right">Suppliers</th>
                 <th className="right">Yield / Domain</th>
-                <th className="right">Density</th>
+                <th className="right">Opportunity</th>
               </tr>
             </thead>
             <tbody>
-              {services.map((service) => (
+              {services.map((service) => {
+                const opportunity = buildAllocatedServiceOpportunity(service, DEFAULT_NEW_PROVIDER_SUPPLIERS, DEFAULT_NEW_PROVIDER_SUPPLIERS);
+
+                return (
                 <tr key={service.serviceId}>
                   <td>
                     <Link href={`/chains/${encodeURIComponent(service.serviceId)}`} className="explorer-primary-link">
@@ -173,14 +185,15 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                   </td>
                   <td className="right">{formatInteger(service.relays)}</td>
                   <td className="right">{formatInteger(service.providerCount)}</td>
+                  <td className="right">{formatInteger(service.supplierCount ?? 0)}</td>
                   <td className="right" style={{ color: 'var(--green)', fontWeight: 600 }}>{formatDecimal(revenuePerProvider(service), 1)} POKT</td>
                   <td className="right">
-                    <span className={`pill ${service.providerCount <= 3 ? 'density-low' : service.providerCount <= 8 ? 'density-medium' : 'density-high'}`} style={{ fontSize: '0.7rem' }}>
-                      {formatCompactNumber(service.relays / Math.max(service.providerCount, 1))} R/D
+                    <span className={`pill ${opportunity.opportunityScore >= 7 ? 'density-low' : opportunity.opportunityScore >= 4 ? 'density-medium' : 'density-high'}`} style={{ fontSize: '0.7rem' }}>
+                      {formatDecimal(opportunity.opportunityScore, 1)} score
                     </span>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

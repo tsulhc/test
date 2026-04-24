@@ -126,6 +126,10 @@ export default async function ChainDetailPage({ params }: PageProps) {
             <span className="hero-highlight-label">Active Domains</span>
             <strong style={{ color: 'var(--text)' }}>{formatInteger(service.providerCount)}</strong>
           </article>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Live Suppliers</span>
+            <strong style={{ color: 'var(--accent)' }}>{formatInteger(service.supplierCount ?? 0)}</strong>
+          </article>
         </div>
       </section>
 

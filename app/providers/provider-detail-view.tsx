@@ -118,6 +118,24 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
 
   const currentData = dataState[selectedWindow];
   const currentProvider = getProvider(currentData, providerKey);
+  const supplierBreakdown = supplierBreakdownByWindow[selectedWindow] ?? [];
+  const mergedSuppliers = useMemo(() => {
+    const providerSuppliers = currentProvider?.suppliers ?? [];
+    const withDetail = new Map(supplierBreakdown.map((supplier) => [supplier.operatorAddress, supplier]));
+    const merged = providerSuppliers.map((supplier) => withDetail.get(supplier.operatorAddress) ?? supplier);
+
+    for (const supplier of supplierBreakdown) {
+      if (!merged.some((entry) => entry.operatorAddress === supplier.operatorAddress)) {
+        merged.push(supplier);
+      }
+    }
+
+    return merged.sort((a, b) => {
+      const aRevenue = a.revenueUpokt ? toBigInt(a.revenueUpokt) : 0n;
+      const bRevenue = b.revenueUpokt ? toBigInt(b.revenueUpokt) : 0n;
+      return bRevenue === aRevenue ? a.operatorAddress.localeCompare(b.operatorAddress) : bRevenue > aRevenue ? 1 : -1;
+    });
+  }, [currentProvider, supplierBreakdown]);
 
   const providerByWindow = useMemo(() => {
     return Object.fromEntries(WINDOWS.map((window) => [window, getProvider(dataState[window], providerKey)])) as Record<
@@ -230,23 +248,6 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
   const revenuePerSupplier = currentProvider.supplierCount === 0 ? 0 : toPoktNumber(currentProvider.revenueUpokt) / currentProvider.supplierCount;
   const revenuePerService = currentProvider.chainCount === 0 ? 0 : toPoktNumber(currentProvider.revenueUpokt) / currentProvider.chainCount;
   const revenuePerThousandRelays = currentProvider.relays === 0 ? 0 : (toPoktNumber(currentProvider.revenueUpokt) / currentProvider.relays) * 1000;
-  const supplierBreakdown = supplierBreakdownByWindow[selectedWindow] ?? [];
-  const mergedSuppliers = useMemo(() => {
-    const withDetail = new Map(supplierBreakdown.map((supplier) => [supplier.operatorAddress, supplier]));
-    const merged = currentProvider.suppliers.map((supplier) => withDetail.get(supplier.operatorAddress) ?? supplier);
-
-    for (const supplier of supplierBreakdown) {
-      if (!merged.some((entry) => entry.operatorAddress === supplier.operatorAddress)) {
-        merged.push(supplier);
-      }
-    }
-
-    return merged.sort((a, b) => {
-      const aRevenue = a.revenueUpokt ? toBigInt(a.revenueUpokt) : 0n;
-      const bRevenue = b.revenueUpokt ? toBigInt(b.revenueUpokt) : 0n;
-      return bRevenue === aRevenue ? a.operatorAddress.localeCompare(b.operatorAddress) : bRevenue > aRevenue ? 1 : -1;
-    });
-  }, [currentProvider.suppliers, supplierBreakdown]);
   const supplierDetailAvailable = mergedSuppliers.some((supplier) => supplier.detailAvailable && supplier.revenueUpokt);
   const supplierDetailCoverage = mergedSuppliers.filter((supplier) => supplier.detailAvailable && supplier.revenueUpokt).length;
   const visibleSuppliers = mergedSuppliers.slice(0, visibleSupplierCount);
@@ -511,7 +512,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="service-list" style={{ marginTop: '24px' }}>
             {opportunityServices.map((service) => {
               const scoreWidth = Math.min(100, Math.max(10, service.opportunityScore * 10));
-              const isHighYield = toPoktNumber(service.projectedRevenuePerSupplierUpokt) > toPoktNumber(currentProvider.revenueUpokt) / Math.max(currentProvider.supplierCount, 1) * 1.2;
+              const isHighYield = Number(service.projectedRevenuePerSupplierUpokt) / 1_000_000 > toPoktNumber(currentProvider.revenueUpokt) / Math.max(currentProvider.supplierCount, 1) * 1.2;
               const isLowComp = service.providerCount <= 5;
               
               return (
@@ -527,7 +528,7 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {isHighYield && <span className="density density-low" style={{ background: 'rgba(0, 209, 160, 0.1)', color: 'var(--green)' }}>High Yield</span>}
                         {isLowComp && <span className="density density-medium" style={{ background: 'rgba(0, 194, 255, 0.1)', color: 'var(--accent)' }}>Early Entry</span>}
-                        {service.selectionProbability > 0.8 && <span className="pill" style={{ fontSize: '0.7rem' }}>High Prob.</span>}
+                        {service.selectionProbability >= 80 && <span className="pill" style={{ fontSize: '0.7rem' }}>High Prob.</span>}
                       </div>
                     </div>
                     <div className="right">

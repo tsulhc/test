@@ -1,7 +1,7 @@
 import ProviderDetailView from "@/app/providers/provider-detail-view";
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardDataSafe, getDashboardSnapshot, getProviderDailyHistory, primeDashboardRefresh } from "@/lib/pocket";
-import type { SerializedDashboardData, SerializedProviderDailyHistoryPoint, TimeWindow } from "@/lib/types";
+import { getDashboardDataSafe, getDashboardSnapshot, getProviderDailyHistory, getProviderSupplierBreakdown, primeDashboardRefresh } from "@/lib/pocket";
+import type { SerializedDashboardData, SerializedProviderDailyHistoryPoint, SerializedSupplierMember, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
@@ -40,5 +40,27 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
     revenueUpokt: point.revenueUpokt.toString()
   })) satisfies SerializedProviderDailyHistoryPoint[];
 
-  return <ProviderDetailView providerKey={providerKey} initialWindow={initialWindow} dataByWindow={dataByWindow} history={history} />;
+  const supplierBreakdowns = await Promise.all(
+    WINDOWS.map(async (window) => {
+      const suppliers = await getProviderSupplierBreakdown(providerKey, window);
+      return [
+        window,
+        suppliers.map((supplier) => ({
+          ...supplier,
+          revenueUpokt: supplier.revenueUpokt?.toString()
+        })) satisfies SerializedSupplierMember[]
+      ] as const;
+    })
+  );
+  const supplierBreakdownByWindow = Object.fromEntries(supplierBreakdowns) as Record<TimeWindow, SerializedSupplierMember[]>;
+
+  return (
+    <ProviderDetailView
+      providerKey={providerKey}
+      initialWindow={initialWindow}
+      dataByWindow={dataByWindow}
+      history={history}
+      supplierBreakdownByWindow={supplierBreakdownByWindow}
+    />
+  );
 }

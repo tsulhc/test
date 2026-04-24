@@ -180,6 +180,7 @@ type SuppliersResponse = {
     owner_address: string;
     operator_address: string;
     services?: Array<{
+      service_id?: string;
       endpoints?: Array<{
         url: string;
       }>;
@@ -262,6 +263,16 @@ type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "provi
     chains: Array<{ serviceId: string; serviceName: string; relays: number; revenueUpokt: string }>;
   }>;
   services: Array<Omit<ServiceStats, "revenueUpokt"> & { revenueUpokt: string }>;
+};
+
+type ServiceSupplierCounts = Record<string, number>;
+
+type PoktscanClaimAggregate = {
+  keys?: string[] | null;
+  sum?: {
+    claimedAmount?: string | number | null;
+    numRelays?: string | number | null;
+  } | null;
 };
 
 function buildRpcUrl(baseUrl: string, path: string): string {
@@ -354,6 +365,36 @@ async function fetchPoktscan<T>(query: string, variables?: Record<string, unknow
 
   return payload;
 }
+
+const getPoktscanClaimAggregates = cache(async (window: TimeWindow): Promise<PoktscanClaimAggregate[]> => {
+  const start = getWindowStart(window);
+  const response = await fetchPoktscan<PoktscanClaimSettledAggregatesResponse>(
+    `query PoktscanClaimsBySupplier($start: Datetime!) {
+      claims: eventClaimSettleds(
+        filter: {
+          block: {
+            timestamp: {
+              greaterThanOrEqualTo: $start
+            }
+          }
+        }
+      ) {
+        groupedAggregates(groupBy: [SUPPLIER_ID, SERVICE_ID]) {
+          keys
+          sum {
+            claimedAmount
+            numRelays
+          }
+        }
+      }
+    }`,
+    {
+      start: start.toISOString()
+    }
+  );
+
+  return response.data?.claims?.groupedAggregates ?? [];
+});
 
 async function getPoktPriceUsd(): Promise<number> {
   if (priceCache && priceCache.expiresAt > Date.now()) {
@@ -741,6 +782,11 @@ function deserializeDashboardData(data: SerializedDashboardCache): DashboardData
   };
 }
 
+function hasServiceSupplierCounts(data: DashboardData | null | undefined): data is DashboardData {
+  if (!data) return false;
+  return data.services.every((service) => typeof service.supplierCount === "number");
+}
+
 function hydrateDashboardCache(window: TimeWindow): DashboardData | null {
   const persisted = getDashboardCache(window);
   if (!persisted) {
@@ -749,6 +795,9 @@ function hydrateDashboardCache(window: TimeWindow): DashboardData | null {
 
   try {
     const data = deserializeDashboardData(JSON.parse(persisted.payloadJson) as SerializedDashboardCache);
+    if (!hasServiceSupplierCounts(data)) {
+      return null;
+    }
     dashboardCache.set(window, {
       data,
       expiresAt: new Date(persisted.updatedAt).getTime() + CACHE_TTL_MS
@@ -770,7 +819,7 @@ function persistDashboard(window: TimeWindow, data: DashboardData): DashboardDat
 
 function getCachedDashboardSnapshot(window: TimeWindow): DashboardData | null {
   const cached = dashboardCache.get(window);
-  if (cached?.data) {
+  if (hasServiceSupplierCounts(cached?.data)) {
     return cached.data;
   }
 
@@ -848,6 +897,41 @@ const getSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
   }
 
   return directory;
+});
+
+const getServiceSupplierCounts = cache(async (): Promise<ServiceSupplierCounts> => {
+  const counts: ServiceSupplierCounts = {};
+  let nextKey = "";
+
+  while (true) {
+    const search = new URLSearchParams({
+      dehydrated: "false",
+      "pagination.limit": "200"
+    });
+
+    if (nextKey) {
+      search.set("pagination.key", nextKey);
+    }
+
+    const response = await fetchJson<SuppliersResponse>(`${DEFAULT_REST_URL}${SUPPLIERS_PATH}?${search.toString()}`);
+
+    for (const supplier of response.supplier ?? []) {
+      const activeServiceIds = new Set(
+        (supplier.services ?? [])
+          .map((service) => service.service_id)
+          .filter((serviceId): serviceId is string => Boolean(serviceId))
+      );
+
+      for (const serviceId of activeServiceIds) {
+        counts[serviceId] = (counts[serviceId] ?? 0) + 1;
+      }
+    }
+
+    nextKey = response.pagination?.next_key ?? "";
+    if (!nextKey) break;
+  }
+
+  return counts;
 });
 
 const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
@@ -991,6 +1075,7 @@ function buildDashboardFromProviderRows(
   window: TimeWindow,
   latestHeight: number,
   rows: ProviderAggregateRow[],
+  serviceSupplierCounts: ServiceSupplierCounts,
   supplierDirectory: SupplierDirectory,
   poktPriceUsd: number,
   options?: {
@@ -1128,6 +1213,7 @@ function buildDashboardFromProviderRows(
 
   for (const service of serviceMap.values()) {
     service.providerCount = providers.filter((provider) => provider.chains.some((chain) => chain.serviceId === service.serviceId)).length;
+    service.supplierCount = serviceSupplierCounts[service.serviceId] ?? 0;
   }
 
   const services = Array.from(serviceMap.values()).sort((a, b) =>
@@ -1160,6 +1246,7 @@ function buildDashboard(
   window: TimeWindow,
   latestHeight: number,
   settlements: SettlementEvent[],
+  serviceSupplierCounts: ServiceSupplierCounts,
   supplierDirectory: SupplierDirectory,
   poktPriceUsd: number
 ): DashboardData {
@@ -1280,6 +1367,7 @@ function buildDashboard(
 
   for (const service of serviceMap.values()) {
     service.providerCount = providers.filter((provider) => provider.chains.some((chain) => chain.serviceId === service.serviceId)).length;
+    service.supplierCount = serviceSupplierCounts[service.serviceId] ?? 0;
   }
 
   const services = Array.from(serviceMap.values()).sort((a, b) =>
@@ -1311,8 +1399,9 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
   if (window === "24h") {
     const start = getWindowStart(window);
     const end = new Date();
-    const [serviceMap, supplierDirectory, poktPriceUsd, claimsResponse] = await Promise.all([
+    const [serviceMap, serviceSupplierCounts, supplierDirectory, poktPriceUsd, claimsResponse] = await Promise.all([
       getServiceMap(),
+      getServiceSupplierCounts(),
       getPoktscanSupplierDirectory(),
       getPoktPriceUsd(),
       fetchPoktscan<PoktscanClaimSettledAggregatesResponse>(
@@ -1374,7 +1463,7 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
     }
 
     const latestHeight = claimsResponse.data?.status?.targetHeight ?? claimsResponse.data?.status?.lastProcessedHeight ?? 0;
-    return buildDashboardFromProviderRows(window, latestHeight, rows, supplierDirectory, poktPriceUsd, {
+    return buildDashboardFromProviderRows(window, latestHeight, rows, serviceSupplierCounts, supplierDirectory, poktPriceUsd, {
       dataSource: "poktscan",
       indexerProcessedHeight: claimsResponse.data?.status?.lastProcessedHeight ?? undefined,
       indexerTargetHeight: claimsResponse.data?.status?.targetHeight ?? undefined,
@@ -1385,8 +1474,9 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
 
   const start = getWindowStart(window);
   const end = new Date();
-  const [serviceMap, supplierDirectory, poktPriceUsd, rewardsResponse] = await Promise.all([
+  const [serviceMap, serviceSupplierCounts, supplierDirectory, poktPriceUsd, rewardsResponse] = await Promise.all([
     getServiceMap(),
+    getServiceSupplierCounts(),
     getPoktscanSupplierDirectory(),
     getPoktPriceUsd(),
     fetchPoktscan<PoktscanDomainRewardsResponse>(
@@ -1438,7 +1528,7 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
   }
 
   const latestHeight = rewardsResponse.data?.status?.targetHeight ?? rewardsResponse.data?.status?.lastProcessedHeight ?? 0;
-  return buildDashboardFromProviderRows(window, latestHeight, rows, supplierDirectory, poktPriceUsd, {
+  return buildDashboardFromProviderRows(window, latestHeight, rows, serviceSupplierCounts, supplierDirectory, poktPriceUsd, {
     dataSource: "poktscan",
     indexerProcessedHeight: rewardsResponse.data?.status?.lastProcessedHeight ?? undefined,
     indexerTargetHeight: rewardsResponse.data?.status?.targetHeight ?? undefined,
@@ -1448,9 +1538,10 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
 }
 
 async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> {
-  const [{ latestHeight }, serviceMap, supplierDirectory, poktPriceUsd] = await Promise.all([
+  const [{ latestHeight }, serviceMap, serviceSupplierCounts, supplierDirectory, poktPriceUsd] = await Promise.all([
     getStatus(),
     getServiceMap(),
+    getServiceSupplierCounts(),
     getSupplierDirectory(),
     getPoktPriceUsd()
   ]);
@@ -1499,7 +1590,7 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
     }
   }
 
-  const dashboard = buildDashboard(window, latestHeight, settlements, supplierDirectory, poktPriceUsd);
+  const dashboard = buildDashboard(window, latestHeight, settlements, serviceSupplierCounts, supplierDirectory, poktPriceUsd);
   const finalized: DashboardData = {
     ...dashboard,
     scannedHeights,
@@ -1548,7 +1639,7 @@ async function loadDashboard(window: TimeWindow): Promise<DashboardData> {
     return hydrated ? dashboardCache.get(window) : undefined;
   })();
 
-  if (cached?.data) {
+  if (hasServiceSupplierCounts(cached?.data)) {
     if (cached.expiresAt <= Date.now()) {
       void refreshDashboard(window);
     }
@@ -1625,6 +1716,64 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
     }
 
     return series;
+  } catch {
+    return [];
+  }
+});
+
+export const getProviderSupplierBreakdown = cache(async (providerKey: string, window: TimeWindow): Promise<SupplierMember[]> => {
+  if (!providerKey) {
+    return [];
+  }
+
+  try {
+    const [serviceMap, supplierDirectory, aggregates] = await Promise.all([
+      getServiceMap(),
+      getPoktscanSupplierDirectory(),
+      getPoktscanClaimAggregates(window)
+    ]);
+
+    const supplierMap = new Map<string, SupplierMember>();
+    const supplierChainMap = new Map<string, Set<string>>();
+
+    for (const aggregate of aggregates) {
+      const supplierId = aggregate.keys?.[0];
+      const serviceId = aggregate.keys?.[1];
+      if (!supplierId || !serviceId) continue;
+
+      const supplierInfo = supplierDirectory[supplierId];
+      if (!supplierInfo || supplierInfo.providerKey !== providerKey) {
+        continue;
+      }
+
+      const supplier = supplierMap.get(supplierId) ?? {
+        operatorAddress: supplierInfo.operatorAddress,
+        ownerAddress: supplierInfo.ownerAddress,
+        domain: supplierInfo.providerDomain,
+        relays: 0,
+        revenueUpokt: 0n,
+        chainCount: 0,
+        detailAvailable: true
+      };
+
+      supplier.relays = (supplier.relays ?? 0) + parseNumeric(aggregate.sum?.numRelays);
+      supplier.revenueUpokt = (supplier.revenueUpokt ?? 0n) + parseNumericBigInt(aggregate.sum?.claimedAmount);
+      supplier.detailAvailable = true;
+      supplierMap.set(supplierId, supplier);
+
+      const chains = supplierChainMap.get(supplierId) ?? new Set<string>();
+      chains.add(serviceMap[serviceId]?.name ?? serviceId);
+      supplierChainMap.set(supplierId, chains);
+    }
+
+    return Array.from(supplierMap.values())
+      .map((supplier) => ({
+        ...supplier,
+        chainCount: supplierChainMap.get(supplier.operatorAddress)?.size ?? 0
+      }))
+      .sort((a, b) => (b.revenueUpokt ?? 0n) === (a.revenueUpokt ?? 0n)
+        ? a.operatorAddress.localeCompare(b.operatorAddress)
+        : (b.revenueUpokt ?? 0n) > (a.revenueUpokt ?? 0n) ? 1 : -1);
   } catch {
     return [];
   }

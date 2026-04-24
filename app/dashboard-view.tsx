@@ -14,6 +14,7 @@ import {
   formatUsd,
   formatUpokt
 } from "@/lib/format";
+import { buildAllocatedServiceOpportunity, DEFAULT_NEW_PROVIDER_SUPPLIERS } from "@/lib/opportunities";
 import type {
   SerializedDashboardData,
   SerializedNetworkDailyHistoryPoint,
@@ -163,19 +164,20 @@ function ProviderRevenueChart({
 }
 
 function OpportunityMap({ services, totalRevenue }: { services: SerializedServiceStats[]; totalRevenue: string }) {
-  const topServices = services.slice(0, 8);
+  const topServices = services
+    .map((service) => buildAllocatedServiceOpportunity(service, DEFAULT_NEW_PROVIDER_SUPPLIERS, DEFAULT_NEW_PROVIDER_SUPPLIERS))
+    .sort((a, b) => b.opportunityScore - a.opportunityScore || b.projectedRevenuePerSupplierUpokt > a.projectedRevenuePerSupplierUpokt ? 1 : -1)
+    .slice(0, 8);
   const maxOpportunity = Math.max(
-    ...topServices.map((service) => toPoktNumber(service.revenueUpokt) / Math.max(service.providerCount, 1)),
+    ...topServices.map((service) => toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability),
     1
   );
 
   return (
     <div className="opportunity-grid">
       {topServices.map((service) => {
-        const revenuePokt = toPoktNumber(service.revenueUpokt);
-        const perProvider = revenuePokt / Math.max(service.providerCount, 1);
-        const width = Math.max(10, Math.round((perProvider / maxOpportunity) * 100));
-        const share = getShare(service.revenueUpokt, totalRevenue);
+        const width = Math.max(10, Math.round(((toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability) / maxOpportunity) * 100));
+        const share = getShare(service.projectedRevenueUpokt.toString(), totalRevenue);
         const density = service.providerCount <= 2 ? "low" : service.providerCount <= 5 ? "medium" : "high";
 
         return (
@@ -190,18 +192,19 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
               </span>
             </div>
             <div className="opportunity-metric-row" style={{ marginTop: '16px' }}>
-              <span className="muted">Total revenue</span>
-              <strong className="accent-number">{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
+              <span className="muted">Projected 15-supplier reward</span>
+              <strong className="accent-number">{formatUpokt(service.projectedRevenueUpokt, 1)}</strong>
             </div>
             <div className="opportunity-metric-row">
-              <span className="muted">Revenue per provider</span>
-              <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatDecimal(perProvider, 1)} POKT</strong>
+              <span className="muted">Projected per supplier</span>
+              <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatUpokt(service.projectedRevenuePerSupplierUpokt, 1)}</strong>
             </div>
             <div className="opportunity-track" style={{ margin: '16px 0' }}>
               <div className="opportunity-fill" style={{ width: `${width}%` }} />
             </div>
             <div className="opportunity-foot">
-              <span>{formatInteger(service.relays)} relays</span>
+              <span>{formatInteger(service.supplierCount)} suppliers live</span>
+              <span>{formatPercent(service.selectionProbability, 0)} slot probability</span>
               <span>{formatPercent(share, 1)} market share</span>
             </div>
           </div>
@@ -503,7 +506,8 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           serviceName: service.serviceName,
           relays: service.relays,
           revenueUpokt: service.revenueUpokt,
-          providerCount: service.providerCount
+          providerCount: service.providerCount,
+          supplierCount: service.supplierCount
         }))}
       />
 
@@ -526,7 +530,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           <div>
               <h2 className="section-title">High-Growth Opportunities</h2>
               <p className="section-subtitle">
-                Target the most attractive services based on current revenue pool and provider density.
+                Best entry opportunities for a new provider using the Foundation's 15-supplier assumption and real supplier competition.
               </p>
             </div>
             <span className="pill">Onboarding Focus</span>

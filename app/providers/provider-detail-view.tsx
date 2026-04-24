@@ -13,11 +13,12 @@ import {
   formatUpokt,
   truncateAddress
 } from "@/lib/format";
+import { buildProviderServiceOpportunity } from "@/lib/opportunities";
 import type {
   SerializedDashboardData,
   SerializedProviderDailyHistoryPoint,
   SerializedProviderStats,
-  SerializedServiceStats,
+  SerializedSupplierMember,
   TimeWindow
 } from "@/lib/types";
 
@@ -29,6 +30,7 @@ type ProviderDetailViewProps = {
   initialWindow: TimeWindow;
   dataByWindow: Record<TimeWindow, SerializedDashboardData | null>;
   history: SerializedProviderDailyHistoryPoint[];
+  supplierBreakdownByWindow: Record<TimeWindow, SerializedSupplierMember[]>;
 };
 
 type DashboardApiResponse = SerializedDashboardData | { status: "warming" | "ready" };
@@ -80,7 +82,7 @@ function getDailyRunRate(provider: SerializedProviderStats | null, window: TimeW
   return toPoktNumber(provider.revenueUpokt) / daysForWindow(window);
 }
 
-export default function ProviderDetailView({ providerKey, initialWindow, dataByWindow, history }: ProviderDetailViewProps) {
+export default function ProviderDetailView({ providerKey, initialWindow, dataByWindow, history, supplierBreakdownByWindow }: ProviderDetailViewProps) {
   const [selectedWindow, setSelectedWindow] = useState<TimeWindow>(initialWindow);
   const [dataState, setDataState] = useState<Record<TimeWindow, SerializedDashboardData | null>>(dataByWindow);
   const [visibleSupplierCount, setVisibleSupplierCount] = useState<number>(INITIAL_VISIBLE_SUPPLIERS);
@@ -180,11 +182,18 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
     const covered = new Set(currentProvider.chains.map((chain) => chain.serviceId));
     return currentData.services
       .filter((service) => !covered.has(service.serviceId))
-      .map((service) => ({
-        ...service,
-        revenuePerProvider: toPoktNumber(service.revenueUpokt) / Math.max(service.providerCount, 1)
-      }))
-      .sort((a, b) => b.revenuePerProvider - a.revenuePerProvider || Number(BigInt(b.revenueUpokt) - BigInt(a.revenueUpokt)))
+      .map((service) => buildProviderServiceOpportunity(service, currentProvider.supplierCount))
+      .sort((a, b) => {
+        if (b.opportunityScore !== a.opportunityScore) {
+          return b.opportunityScore - a.opportunityScore;
+        }
+
+        if (b.selectionProbability !== a.selectionProbability) {
+          return b.selectionProbability - a.selectionProbability;
+        }
+
+        return b.projectedRevenueUpokt === a.projectedRevenueUpokt ? a.serviceName.localeCompare(b.serviceName) : b.projectedRevenueUpokt > a.projectedRevenueUpokt ? 1 : -1;
+      })
       .slice(0, 6);
   }, [currentData, currentProvider]);
 
@@ -221,20 +230,48 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
   const revenuePerSupplier = currentProvider.supplierCount === 0 ? 0 : toPoktNumber(currentProvider.revenueUpokt) / currentProvider.supplierCount;
   const revenuePerService = currentProvider.chainCount === 0 ? 0 : toPoktNumber(currentProvider.revenueUpokt) / currentProvider.chainCount;
   const revenuePerThousandRelays = currentProvider.relays === 0 ? 0 : (toPoktNumber(currentProvider.revenueUpokt) / currentProvider.relays) * 1000;
-  const supplierDetailAvailable = currentProvider.suppliers.some((supplier) => supplier.detailAvailable && supplier.revenueUpokt);
-  const supplierDetailCoverage = currentProvider.suppliers.filter((supplier) => supplier.detailAvailable && supplier.revenueUpokt).length;
-  const visibleSuppliers = currentProvider.suppliers.slice(0, visibleSupplierCount);
-  const hasMoreSuppliers = currentProvider.suppliers.length > visibleSupplierCount;
+  const supplierBreakdown = supplierBreakdownByWindow[selectedWindow] ?? [];
+  const mergedSuppliers = useMemo(() => {
+    const withDetail = new Map(supplierBreakdown.map((supplier) => [supplier.operatorAddress, supplier]));
+    const merged = currentProvider.suppliers.map((supplier) => withDetail.get(supplier.operatorAddress) ?? supplier);
+
+    for (const supplier of supplierBreakdown) {
+      if (!merged.some((entry) => entry.operatorAddress === supplier.operatorAddress)) {
+        merged.push(supplier);
+      }
+    }
+
+    return merged.sort((a, b) => {
+      const aRevenue = a.revenueUpokt ? toBigInt(a.revenueUpokt) : 0n;
+      const bRevenue = b.revenueUpokt ? toBigInt(b.revenueUpokt) : 0n;
+      return bRevenue === aRevenue ? a.operatorAddress.localeCompare(b.operatorAddress) : bRevenue > aRevenue ? 1 : -1;
+    });
+  }, [currentProvider.suppliers, supplierBreakdown]);
+  const supplierDetailAvailable = mergedSuppliers.some((supplier) => supplier.detailAvailable && supplier.revenueUpokt);
+  const supplierDetailCoverage = mergedSuppliers.filter((supplier) => supplier.detailAvailable && supplier.revenueUpokt).length;
+  const visibleSuppliers = mergedSuppliers.slice(0, visibleSupplierCount);
+  const hasMoreSuppliers = mergedSuppliers.length > visibleSupplierCount;
+  const supplierBreakdownVisible = supplierBreakdown.length > 0 || selectedWindow === "24h";
 
   return (
     <main className="page provider-page">
       <section className="hero provider-hero">
-        <div className="provider-head panel">
+        <div className="provider-head panel" style={{ overflow: 'hidden', position: 'relative' }}>
+          <div style={{ 
+            position: 'absolute', 
+            top: '-20%', 
+            right: '-10%', 
+            width: '50%', 
+            height: '150%', 
+            background: 'radial-gradient(circle, rgba(0, 194, 255, 0.04) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+
           <div className="provider-head-top">
             <div>
-              <span className="eyebrow">Provider detail</span>
+              <span className="eyebrow">Provider Profile</span>
               <h1>{currentProvider.providerLabel}</h1>
-              <p className="section-subtitle mono">{currentProvider.providerDomain}</p>
+              <p className="section-subtitle mono" style={{ fontSize: '0.9rem' }}>{currentProvider.providerDomain}</p>
             </div>
             <div className="provider-head-actions">
               <div className="window-tabs provider-window-tabs provider-head-controls">
@@ -248,8 +285,8 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                     {window}
                   </button>
                 ))}
-                <Link href={`/?window=${selectedWindow}`} className="calculator-action provider-back-link">
-                  Back to dashboard
+                <Link href={`/?window=${selectedWindow}`} className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
+                  Dashboard
                 </Link>
               </div>
             </div>
@@ -257,24 +294,24 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
 
           <div className="provider-kpi-grid">
             <article className="panel kpi kpi-primary">
-              <span className="kpi-label">Provider-side revenue</span>
+              <span className="kpi-label">Provider Revenue</span>
               <span className="kpi-value">{formatUpokt(toBigInt(currentProvider.revenueUpokt), 1)}</span>
-              <span className="kpi-foot">{formatUsd(toUsdFromUpokt(currentProvider.revenueUpokt, currentData.poktPriceUsd), 0)} in {formatRelativeRange(selectedWindow)}</span>
+              <span className="kpi-foot">{formatUsd(toUsdFromUpokt(currentProvider.revenueUpokt, currentData.poktPriceUsd), 0)} in window</span>
             </article>
             <article className="panel kpi">
-              <span className="kpi-label">Market share</span>
+              <span className="kpi-label">Network Share</span>
               <span className="kpi-value">{formatPercent(marketShare, 1)}</span>
-              <span className="kpi-foot">Rank #{formatInteger(currentRank)} among {formatInteger(currentData.activeProviders)} active providers</span>
+              <span className="kpi-foot">Rank #{formatInteger(currentRank)} of {formatInteger(currentData.activeProviders)}</span>
             </article>
             <article className="panel kpi">
-              <span className="kpi-label">Relay volume</span>
-              <span className="kpi-value">{formatCompactNumber(currentProvider.relays)}</span>
-              <span className="kpi-foot">{formatInteger(currentProvider.relays)} relays across {formatInteger(currentProvider.chainCount)} services</span>
+              <span className="kpi-label">Relay Traffic</span>
+              <span className="kpi-value" style={{ color: 'var(--green)' }}>{formatCompactNumber(currentProvider.relays)}</span>
+              <span className="kpi-foot">{formatInteger(currentProvider.relays)} total relays</span>
             </article>
             <article className="panel kpi">
-              <span className="kpi-label">Supplier footprint</span>
-              <span className="kpi-value">{formatInteger(currentProvider.supplierCount)}</span>
-              <span className="kpi-foot">{formatDecimal(revenuePerSupplier, 1)} POKT per supplier in this window</span>
+              <span className="kpi-label">Operational Scale</span>
+              <span className="kpi-value" style={{ color: 'var(--accent)' }}>{formatInteger(currentProvider.supplierCount)}</span>
+              <span className="kpi-foot">Suppliers across {formatInteger(currentProvider.chainCount)} chains</span>
             </article>
           </div>
         </div>
@@ -285,33 +322,33 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Performance Over Time</h2>
-              <p className="section-subtitle">Daily provider-side revenue across the last 30 settled days from Poktscan.</p>
+              <p className="section-subtitle">Daily provider-side revenue settled across the last 30 days.</p>
             </div>
-            <span className="pill">Timeseries</span>
+            <span className="pill" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}>Verified History</span>
           </div>
 
           {history.length > 0 ? (
             <>
               <div className="provider-history-summary">
-                <div className="provider-history-stat">
-                  <span className="hero-highlight-label">Latest day</span>
-                  <strong>{lastHistoryPoint ? formatUpokt(toBigInt(lastHistoryPoint.revenueUpokt), 1) : "n/a"}</strong>
-                  <p>{lastHistoryPoint?.day ?? "No daily history yet"}</p>
+                <div className="provider-history-stat panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <span className="hero-highlight-label">Latest Settled</span>
+                  <strong style={{ color: 'var(--accent)' }}>{lastHistoryPoint ? formatUpokt(toBigInt(lastHistoryPoint.revenueUpokt), 1) : "n/a"}</strong>
+                  <p style={{ fontSize: '0.8rem' }}>{lastHistoryPoint?.day ?? "No data"}</p>
                 </div>
-                <div className="provider-history-stat">
-                  <span className="hero-highlight-label">7d growth</span>
-                  <strong>{formatPercent(trailing7dGrowth, 1)}</strong>
-                  <p>Last 7 days versus the previous 7 days.</p>
+                <div className="provider-history-stat panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <span className="hero-highlight-label">7d Momentum</span>
+                  <strong style={{ color: trailing7dGrowth > 0 ? 'var(--green)' : 'var(--red)' }}>{formatPercent(trailing7dGrowth, 1)}</strong>
+                  <p style={{ fontSize: '0.8rem' }}>vs previous week</p>
                 </div>
-                <div className="provider-history-stat">
-                  <span className="hero-highlight-label">Day-over-day</span>
-                  <strong>{formatPercent(dayOverDayGrowth, 1)}</strong>
-                  <p>Latest day versus the day before.</p>
+                <div className="provider-history-stat panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <span className="hero-highlight-label">24h Momentum</span>
+                  <strong style={{ color: dayOverDayGrowth > 0 ? 'var(--green)' : 'var(--red)' }}>{formatPercent(dayOverDayGrowth, 1)}</strong>
+                  <p style={{ fontSize: '0.8rem' }}>vs yesterday</p>
                 </div>
-                <div className="provider-history-stat">
-                  <span className="hero-highlight-label">Best day</span>
-                  <strong>{bestHistoryDay ? formatUpokt(toBigInt(bestHistoryDay.revenueUpokt), 1) : "n/a"}</strong>
-                  <p>{bestHistoryDay?.day ?? "n/a"}</p>
+                <div className="provider-history-stat panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <span className="hero-highlight-label">All-Time Peak</span>
+                  <strong style={{ color: 'var(--text)' }}>{bestHistoryDay ? formatUpokt(toBigInt(bestHistoryDay.revenueUpokt), 1) : "n/a"}</strong>
+                  <p style={{ fontSize: '0.8rem' }}>{bestHistoryDay?.day ?? "n/a"}</p>
                 </div>
               </div>
 
@@ -321,24 +358,41 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                   const average = movingAverage[index] ?? 0;
                   const height = maxHistoryRevenue === 0 ? 6 : Math.max(6, Math.round((revenue / maxHistoryRevenue) * 100));
                   const averageHeight = maxHistoryRevenue === 0 ? 6 : Math.max(6, Math.round((average / maxHistoryRevenue) * 100));
+                  const isLatest = point === lastHistoryPoint;
 
                   return (
-                    <div key={point.day} className="provider-history-bar-group" title={`${point.day}: ${formatDecimal(revenue, 1)} POKT · ${formatInteger(point.relays)} relays`}>
+                    <div key={point.day} className="provider-history-bar-group" title={`${point.day}: ${formatDecimal(revenue, 1)} POKT`}>
                       <div className="provider-history-average" style={{ height: `${averageHeight}%` }} />
-                      <div className="provider-history-bar" style={{ height: `${height}%` }} />
-                      <span>{point.day.slice(5)}</span>
+                      <div 
+                        className="provider-history-bar" 
+                        style={{ 
+                          height: `${height}%`,
+                          background: isLatest ? 'var(--accent)' : undefined,
+                          boxShadow: isLatest ? '0 0 15px rgba(0, 194, 255, 0.4)' : undefined
+                        }} 
+                      />
+                      <span style={{ fontWeight: isLatest ? 800 : 500, color: isLatest ? 'var(--text)' : 'var(--muted)' }}>
+                        {point.day.slice(5)}
+                      </span>
                     </div>
                   );
                 })}
               </div>
 
-              <p className="footer-note">
-                Solid bars show daily provider revenue. The faint line behind them represents a rolling 7-day average to make momentum easier to read.
+              <p className="footer-note" style={{ textAlign: 'center', opacity: 0.8 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginRight: '24px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--accent)' }} />
+                  Daily Revenue
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(245, 200, 66, 0.4)' }} />
+                  7-Day Average
+                </span>
               </p>
             </>
           ) : (
             <p className="footer-note">
-              Daily provider history is not available for this provider yet. Domain-based providers backed by Poktscan have the best support for this view.
+              Daily provider history is not available for this provider yet.
             </p>
           )}
         </article>
@@ -349,33 +403,32 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Growth Snapshot</h2>
-              <p className="section-subtitle">Current efficiency, concentration, and run-rate momentum in a single operator view.</p>
+              <p className="section-subtitle">Run-rate momentum and unit efficiency benchmarks.</p>
             </div>
-            <span className="pill">Performance</span>
+            <span className="pill">KPI Analytics</span>
           </div>
 
           <div className="provider-timescale-grid">
             {WINDOWS.map((window) => {
               const provider = providerByWindow[window];
               return (
-                <article key={window} className="provider-timescale-card">
-                  <span className="hero-highlight-label">{window}</span>
-                  <strong>{provider ? formatUpokt(toBigInt(provider.revenueUpokt), 1) : "Warming"}</strong>
-                  <p>{provider ? `${formatDecimal(getDailyRunRate(provider, window), 1)} POKT/day run rate` : "Snapshot not ready yet."}</p>
+                <article key={window} className="provider-timescale-card panel-inset" style={{ border: '1px solid var(--border)' }}>
+                  <span className="hero-highlight-label">{window} Snapshot</span>
+                  <strong style={{ color: provider ? 'var(--text)' : 'var(--muted)' }}>{provider ? formatUpokt(toBigInt(provider.revenueUpokt), 1) : "Warming"}</strong>
+                  <p style={{ fontSize: '0.8rem' }}>{provider ? `${formatDecimal(getDailyRunRate(provider, window), 1)} POKT/day run rate` : "Snapshot not ready."}</p>
                 </article>
               );
             })}
           </div>
 
           <div className="provider-insight-list">
-            <div className="insight-row"><span className="muted">24h vs 7d run rate</span><strong>{formatPercent(momentum24hVs7d, 1)}</strong></div>
-            <div className="insight-row"><span className="muted">7d vs 30d run rate</span><strong>{formatPercent(momentum7dVs30d, 1)}</strong></div>
-            <div className="insight-row"><span className="muted">Revenue per supplier</span><strong>{formatDecimal(revenuePerSupplier, 1)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Revenue per service</span><strong>{formatDecimal(revenuePerService, 1)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Revenue per 1k relays</span><strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong></div>
-            <div className="insight-row"><span className="muted">Top service concentration</span><strong>{currentProvider.chains[0] ? formatPercent(getShare(currentProvider.chains[0].revenueUpokt, currentProvider.revenueUpokt), 1) : "n/a"}</strong></div>
-            <div className="insight-row"><span className="muted">Live data source</span><strong>{currentData.dataSource === "poktscan" ? "Poktscan" : "RPC fallback"}</strong></div>
-            {isPending ? <div className="insight-row"><span className="muted">Background refresh</span><strong>Updating window snapshot</strong></div> : null}
+            <div className="insight-row"><span className="muted">Weekly Efficiency</span><strong style={{ color: 'var(--green)' }}>{formatPercent(momentum24hVs7d, 1)}</strong></div>
+            <div className="insight-row"><span className="muted">Monthly Momentum</span><strong style={{ color: 'var(--green)' }}>{formatPercent(momentum7dVs30d, 1)}</strong></div>
+            <div className="insight-row"><span className="muted">Revenue / Supplier</span><strong>{formatDecimal(revenuePerSupplier, 1)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Revenue / Service</span><strong>{formatDecimal(revenuePerService, 1)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Unit Yield (1k Relays)</span><strong style={{ color: 'var(--accent)' }}>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong></div>
+            <div className="insight-row"><span className="muted">Top Chain Concentration</span><strong>{currentProvider.chains[0] ? formatPercent(getShare(currentProvider.chains[0].revenueUpokt, currentProvider.revenueUpokt), 1) : "n/a"}</strong></div>
+            <div className="insight-row"><span className="muted">Source Integrity</span><strong style={{ color: 'var(--green)' }}>{currentData.dataSource === "poktscan" ? "Poktscan API" : "RPC direct"}</strong></div>
           </div>
         </article>
 
@@ -450,10 +503,14 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Expansion Opportunities</h2>
-              <p className="section-subtitle">High-value services the provider is not currently monetizing in this window.</p>
+              <p className="section-subtitle">Services this provider is not monetizing yet, ranked by projected reward with its current supplier footprint.</p>
             </div>
             <span className="pill">Next chains</span>
           </div>
+
+          <p className="footer-note">
+            This ranking uses the provider's current footprint of <strong>{formatInteger(currentProvider.supplierCount)} suppliers</strong> against the network's known supplier count for each service. It keeps the new-provider calculator separate from existing-provider expansion decisions.
+          </p>
 
           <div className="service-list">
             {opportunityServices.map((service) => (
@@ -464,13 +521,19 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                     <div className="muted mono">{service.serviceId}</div>
                   </div>
                   <div className="right">
-                    <strong>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
-                    <div className="muted">{formatInteger(service.providerCount)} active providers</div>
+                    <strong>{formatUpokt(service.projectedRevenueUpokt, 1)}</strong>
+                    <div className="muted">Projected with {formatInteger(currentProvider.supplierCount)} suppliers</div>
                   </div>
                 </div>
                 <div className="provider-row-metrics">
-                  <span>{formatDecimal(service.revenuePerProvider, 1)} POKT per provider</span>
+                  <span>{formatDecimal(service.opportunityScore, 1)} opportunity score</span>
+                  <span>{formatUpokt(service.projectedRevenuePerSupplierUpokt, 1)} per supplier</span>
+                  <span>{formatPercent(service.selectionProbability, 1)} chance to land at least one 30m session slot</span>
+                  <span>{formatInteger(service.supplierCount)} network suppliers already on this chain</span>
+                  <span>{formatPercent(service.expectedSharePercent, 1)} modeled reward share</span>
+                  <span>{formatInteger(service.providerCount)} active providers</span>
                   <span>{formatCompactNumber(service.relays)} relays</span>
+                  {service.computeUnits ? <span>{formatCompactNumber(service.computeUnits)} CUs</span> : null}
                 </div>
               </div>
             ))}
@@ -487,6 +550,9 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
             </div>
             <span className="pill">Operators</span>
           </div>
+
+          {supplierBreakdownVisible ? (
+            <>
 
           <table className="mini-table">
             <thead>
@@ -518,8 +584,8 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
               </tbody>
             </table>
 
-          {hasMoreSuppliers ? (
-            <div className="provider-load-more-row">
+           {hasMoreSuppliers ? (
+             <div className="provider-load-more-row">
               <button
                 type="button"
                 className="calculator-action"
@@ -528,23 +594,29 @@ export default function ProviderDetailView({ providerKey, initialWindow, dataByW
                 Load More
               </button>
               <span className="muted">
-                Showing {formatInteger(visibleSuppliers.length)} of {formatInteger(currentProvider.suppliers.length)} suppliers
-              </span>
-            </div>
-          ) : currentProvider.suppliers.length > INITIAL_VISIBLE_SUPPLIERS ? (
-            <div className="provider-load-more-row">
-              <span className="muted">
-                Showing all {formatInteger(currentProvider.suppliers.length)} suppliers
-              </span>
-            </div>
-          ) : null}
+                 Showing {formatInteger(visibleSuppliers.length)} of {formatInteger(mergedSuppliers.length)} suppliers
+               </span>
+             </div>
+           ) : mergedSuppliers.length > INITIAL_VISIBLE_SUPPLIERS ? (
+             <div className="provider-load-more-row">
+               <span className="muted">
+                 Showing all {formatInteger(mergedSuppliers.length)} suppliers
+               </span>
+             </div>
+           ) : null}
 
           <p className="footer-note">
             {supplierDetailAvailable
-              ? `${formatInteger(supplierDetailCoverage)} of ${formatInteger(currentProvider.suppliers.length)} suppliers have direct revenue detail in this ${selectedWindow} snapshot.`
+              ? `${formatInteger(supplierDetailCoverage)} of ${formatInteger(mergedSuppliers.length)} suppliers have direct revenue detail in this ${selectedWindow} snapshot.`
               : `This ${selectedWindow} snapshot does not expose direct supplier-level revenue yet.`}{" "}
             Supplier-level monetization is most reliable on finer-grained snapshots, especially <code>24h</code>. Clicking a supplier opens its Poktscan page.
           </p>
+            </>
+          ) : (
+            <p className="footer-note">
+              Supplier-level settlement breakdown is not currently available for this window. The provider footprint above remains available.
+            </p>
+          )}
         </article>
       </section>
     </main>

@@ -88,58 +88,67 @@ export default async function ChainDetailPage({ params }: PageProps) {
 
   return (
     <main className="page explorer-page">
-      <section className="panel section explorer-hero">
+      <section className="panel section explorer-hero" style={{ overflow: 'hidden', position: 'relative' }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: '-10%', 
+          right: '-5%', 
+          width: '30%', 
+          height: '120%', 
+          background: 'radial-gradient(circle, rgba(0, 194, 255, 0.05) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
         <div>
-          <span className="eyebrow">Chain Detail</span>
+          <span className="eyebrow">Chain Profile</span>
           <h1>{service.serviceName}</h1>
-          <p className="section-subtitle mono">{service.serviceId}</p>
-          <p className="section-subtitle">
-            Analyze 30d provider rewards, relay demand, competition density, and the providers currently monetizing this service.
+          <p className="section-subtitle mono" style={{ fontSize: '0.9rem' }}>{service.serviceId}</p>
+          <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px', marginTop: '12px' }}>
+            Analyze specialized demand, unit yields, and the provider leaderboard for this specific service.
           </p>
-          <div className="window-tabs">
-            <Link href="/chains" className="calculator-action provider-back-link">Back to chains</Link>
+          <div className="window-tabs" style={{ marginTop: '24px' }}>
+            <Link href="/chains" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
+              Back to Explorer
+            </Link>
           </div>
         </div>
+        
         <div className="explorer-summary-grid">
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Revenue</span>
-            <strong>{formatUpokt(service.revenueUpokt, 1)}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Service Revenue</span>
+            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(service.revenueUpokt, 1)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Relays</span>
-            <strong>{formatCompactNumber(service.relays)}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Final Relays</span>
+            <strong style={{ color: 'var(--green)' }}>{formatCompactNumber(service.relays)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Providers</span>
-            <strong>{formatInteger(service.providerCount)}</strong>
-          </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Compute Units</span>
-            <strong>{service.computeUnits ? formatCompactNumber(service.computeUnits) : "n/a"}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Active Domains</span>
+            <strong style={{ color: 'var(--text)' }}>{formatInteger(service.providerCount)}</strong>
           </article>
         </div>
       </section>
 
       <section className="kpi-grid kpi-grid-strong rewards-kpi-grid">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Revenue / provider</span>
+          <span className="kpi-label">Yield / active domain</span>
           <span className="kpi-value">{formatDecimal(revenuePerProvider, 1)} POKT</span>
-          <span className="kpi-foot">{formatUsd(revenuePerProvider * data.poktPriceUsd, 0)} average in 30d</span>
+          <span className="kpi-foot">{formatUsd(revenuePerProvider * data.poktPriceUsd, 0)} per domain (30d)</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Revenue / 1k relays</span>
-          <span className="kpi-value">{formatDecimal(revenuePerThousandRelays, 2)} POKT</span>
-          <span className="kpi-foot">Service-level monetization density</span>
+          <span className="kpi-label">Monetization density</span>
+          <span className="kpi-value" style={{ color: 'var(--accent)' }}>{formatDecimal(revenuePerThousandRelays, 2)} POKT</span>
+          <span className="kpi-foot">Revenue per 1,000 relays</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Network reward share</span>
+          <span className="kpi-label">Market influence</span>
           <span className="kpi-value">{formatPercent(getShare(service.revenueUpokt, data.totalRevenueUpokt), 1)}</span>
-          <span className="kpi-foot">Share of total provider rewards</span>
+          <span className="kpi-foot">Share of total network rewards</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Top provider</span>
-          <span className="kpi-value">{topProvider ? formatPercent(getShare(topProvider.chain.revenueUpokt, service.revenueUpokt), 1) : "n/a"}</span>
-          <span className="kpi-foot">{topProvider?.provider.providerLabel ?? "No provider activity"}</span>
+          <span className="kpi-label">Top domain focus</span>
+          <span className="kpi-value" style={{ color: 'var(--green)' }}>{topProvider ? formatPercent(getShare(topProvider.chain.revenueUpokt, service.revenueUpokt), 1) : "n/a"}</span>
+          <span className="kpi-foot">{topProvider?.provider.providerLabel ?? "No activity"}</span>
         </article>
       </section>
 
@@ -157,35 +166,41 @@ export default async function ChainDetailPage({ params }: PageProps) {
         <div className="section-title-row">
           <div>
             <h2 className="section-title">Top Providers on This Chain</h2>
-            <p className="section-subtitle">Provider domains earning the most from this service in the 30d snapshot.</p>
+            <p className="section-subtitle">Domains earning the most from this specific service in 30d.</p>
           </div>
-          <span className="pill">Top {Math.min(providerRows.length, 12)}</span>
+          <span className="pill">Leaderboard</span>
         </div>
 
         <div className="explorer-table-wrap">
           <table className="mini-table explorer-table">
             <thead>
               <tr>
-                <th>Provider</th>
-                <th className="right">Revenue</th>
-                <th className="right">Relays</th>
+                <th>Provider Entity</th>
+                <th className="right">Revenue (30d)</th>
+                <th className="right">Final Relays</th>
                 <th className="right">Service Share</th>
                 <th className="right">Provider Mix</th>
               </tr>
             </thead>
             <tbody>
-              {providerRows.slice(0, 12).map(({ provider, chain }) => (
+              {providerRows.slice(0, 15).map(({ provider, chain }) => (
                 <tr key={provider.providerKey}>
                   <td>
                     <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=30d`} className="explorer-primary-link">
                       {provider.providerLabel}
                     </Link>
-                    <div className="muted mono">{provider.providerDomain}</div>
+                    <div className="muted mono" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{provider.providerDomain}</div>
                   </td>
-                  <td className="right">{formatUpokt(chain.revenueUpokt, 1)}</td>
+                  <td className="right">
+                    <strong className="accent-number">{formatUpokt(chain.revenueUpokt, 1)}</strong>
+                  </td>
                   <td className="right">{formatInteger(chain.relays)}</td>
-                  <td className="right">{formatPercent(getShare(chain.revenueUpokt, service.revenueUpokt), 1)}</td>
-                  <td className="right">{formatPercent(getShare(chain.revenueUpokt, provider.revenueUpokt), 1)}</td>
+                  <td className="right" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    {formatPercent(getShare(chain.revenueUpokt, service.revenueUpokt), 1)}
+                  </td>
+                  <td className="right">
+                    {formatPercent(getShare(chain.revenueUpokt, provider.revenueUpokt), 1)}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
 import type { SerializedDashboardData, SerializedServiceStats } from "@/lib/types";
 
-type SortKey = "revenue" | "relays" | "computeUnits" | "providers" | "revenuePerProvider";
+type SortKey = "revenue" | "relays" | "computeUnits" | "providers" | "suppliers" | "revenuePerProvider";
 
 type ChainsExplorerViewProps = {
   data: SerializedDashboardData | null;
@@ -30,6 +30,8 @@ function getSortValue(service: SerializedServiceStats, sort: SortKey): number | 
       return service.computeUnits ?? 0;
     case "providers":
       return service.providerCount;
+    case "suppliers":
+      return service.supplierCount ?? 0;
     case "revenuePerProvider":
       return revenuePerProvider(service);
   }
@@ -74,63 +76,86 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
 
   return (
     <main className="page explorer-page">
-      <section className="panel section explorer-hero">
+      <section className="panel section explorer-hero" style={{ overflow: 'hidden', position: 'relative' }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: '-10%', 
+          right: '-5%', 
+          width: '30%', 
+          height: '120%', 
+          background: 'radial-gradient(circle, rgba(0, 194, 255, 0.05) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
         <div>
-          <span className="eyebrow">Chains</span>
-          <h1>Find where Pocket demand concentrates.</h1>
-          <p className="section-subtitle">
-            Rank active services by revenue, relay demand, provider density, and revenue per active provider to spot high-value expansion targets.
+          <span className="eyebrow">Service Explorer</span>
+          <h1>Chain Intelligence.</h1>
+          <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
+            Identify high-value targets across the decentralized web. Analyze relay demand, provider density, 
+            and monetization yield per active service.
           </p>
         </div>
+        
         <div className="explorer-summary-grid">
-          <article className="explorer-summary-card">
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Active Services</span>
-            <strong>{formatInteger(data.activeChains)}</strong>
+            <strong style={{ color: 'var(--text)' }}>{formatInteger(data.activeChains)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Revenue Pool</span>
-            <strong>{formatUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Aggregate Pool</span>
+            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
           </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Relays</span>
-            <strong>{formatCompactNumber(data.totalRelays)}</strong>
-          </article>
-          <article className="explorer-summary-card">
-            <span className="hero-highlight-label">Compute Units</span>
-            <strong>{totalComputeUnits > 0 ? formatCompactNumber(totalComputeUnits) : "n/a"}</strong>
+          <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <span className="hero-highlight-label">Total Traffic</span>
+            <strong style={{ color: 'var(--green)' }}>{formatCompactNumber(data.totalRelays)}</strong>
           </article>
         </div>
       </section>
 
       <section className="panel section">
         <div className="explorer-toolbar">
-          <label className="explorer-search">
-            <span className="hero-highlight-label">Search chain</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Service name or ID" />
-          </label>
-          <label className="explorer-select">
-            <span className="hero-highlight-label">Sort by</span>
+          <div className="explorer-search">
+            <span className="hero-highlight-label">Filter Chains</span>
+            <div style={{ position: 'relative' }}>
+              <input 
+                value={query} 
+                onChange={(event) => setQuery(event.target.value)} 
+                placeholder="Service name or identity..." 
+                style={{ paddingLeft: '40px' }}
+              />
+              <svg 
+                style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', opacity: 0.5 }}
+                width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="explorer-select">
+            <span className="hero-highlight-label">Sort Objective</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-              <option value="revenue">Revenue</option>
-              <option value="relays">Relays</option>
-              <option value="computeUnits">Compute units</option>
-              <option value="providers">Providers</option>
-              <option value="revenuePerProvider">Revenue / provider</option>
+              <option value="revenue">Total Revenue</option>
+              <option value="relays">Relay Volume</option>
+              <option value="providers">Provider Density</option>
+              <option value="revenuePerProvider">Yield / Provider</option>
+              <option value="computeUnits">Compute Units</option>
+              <option value="suppliers">Supplier Count</option>
             </select>
-          </label>
+          </div>
         </div>
 
         <div className="explorer-table-wrap">
           <table className="mini-table explorer-table">
             <thead>
               <tr>
-                <th>Chain</th>
-                <th className="right">Revenue</th>
-                <th className="right">Relays</th>
-                <th className="right">CU</th>
-                <th className="right">Providers</th>
-                <th className="right">Revenue / Provider</th>
-                <th className="right">Relay Density</th>
+                <th>Service Identity</th>
+                <th className="right">Revenue (30d)</th>
+                <th className="right">Final Relays</th>
+                <th className="right">Domains</th>
+                <th className="right">Yield / Domain</th>
+                <th className="right">Density</th>
               </tr>
             </thead>
             <tbody>
@@ -140,20 +165,20 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                     <Link href={`/chains/${encodeURIComponent(service.serviceId)}`} className="explorer-primary-link">
                       {service.serviceName}
                     </Link>
-                    <div className="muted mono">{service.serviceId}</div>
-                    <Link href={`/chains/${encodeURIComponent(service.serviceId)}`} className="provider-inline-link">
-                      View details <span className="provider-link-arrow" aria-hidden="true">→</span>
-                    </Link>
+                    <div className="muted mono" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{service.serviceId}</div>
                   </td>
                   <td className="right">
-                    <strong>{formatUpokt(BigInt(service.revenueUpokt), 1)}</strong>
-                    <div className="muted">{formatUsd(toPoktNumber(service.revenueUpokt) * data.poktPriceUsd, 0)}</div>
+                    <strong className="accent-number" style={{ fontSize: '1.05rem' }}>{formatUpokt(BigInt(service.revenueUpokt), 1)}</strong>
+                    <div className="muted" style={{ fontSize: '0.8rem' }}>{formatUsd(toPoktNumber(service.revenueUpokt) * data.poktPriceUsd, 0)}</div>
                   </td>
                   <td className="right">{formatInteger(service.relays)}</td>
-                  <td className="right">{service.computeUnits ? formatCompactNumber(service.computeUnits) : "n/a"}</td>
                   <td className="right">{formatInteger(service.providerCount)}</td>
-                  <td className="right">{formatDecimal(revenuePerProvider(service), 1)} POKT</td>
-                  <td className="right">{formatCompactNumber(service.relays / Math.max(service.providerCount, 1))} relays/provider</td>
+                  <td className="right" style={{ color: 'var(--green)', fontWeight: 600 }}>{formatDecimal(revenuePerProvider(service), 1)} POKT</td>
+                  <td className="right">
+                    <span className={`pill ${service.providerCount <= 3 ? 'density-low' : service.providerCount <= 8 ? 'density-medium' : 'density-high'}`} style={{ fontSize: '0.7rem' }}>
+                      {formatCompactNumber(service.relays / Math.max(service.providerCount, 1))} R/D
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

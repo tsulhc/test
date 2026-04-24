@@ -74,6 +74,8 @@ export type NetworkDailyHistoryPoint = {
   revenueUpokt: bigint;
 };
 
+export type ServiceDailyHistoryPoint = NetworkDailyHistoryPoint;
+
 export type SerializedProviderChainStats = Omit<ProviderChainStats, "revenueUpokt"> & {
   revenueUpokt: string;
 };
@@ -99,6 +101,8 @@ export type SerializedProviderDailyHistoryPoint = Omit<ProviderDailyHistoryPoint
 export type SerializedNetworkDailyHistoryPoint = Omit<NetworkDailyHistoryPoint, "revenueUpokt"> & {
   revenueUpokt: string;
 };
+
+export type SerializedServiceDailyHistoryPoint = SerializedNetworkDailyHistoryPoint;
 
 export type SerializedDashboardData = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
   totalRevenueUpokt: string;

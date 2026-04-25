@@ -131,9 +131,9 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
               <span className="kpi-foot">Aggregated demand in window</span>
             </article>
 
-            <article className="calculator-kpi-card calculator-kpi-card-accent" style={{ background: 'linear-gradient(135deg, rgba(0, 194, 255, 0.1) 0%, transparent 100%)' }}>
-              <span className="kpi-label" style={{ color: 'var(--accent)' }}>Projected Daily Earnings</span>
-              <strong className="calculator-kpi-value accent-number" style={{ color: 'var(--accent)', textShadow: '0 0 20px rgba(0, 194, 255, 0.2)' }}>
+            <article className="calculator-kpi-card calculator-kpi-card-accent" style={{ background: 'linear-gradient(135deg, rgba(0, 194, 255, 0.05) 0%, transparent 100%)', borderColor: 'var(--cyan-accent)' }}>
+              <span className="kpi-label" style={{ color: 'var(--cyan-accent)' }}>Projected Daily Earnings</span>
+              <strong className="calculator-kpi-value accent-number" style={{ color: 'var(--cyan-accent)', textShadow: '0 0 20px rgba(0, 194, 255, 0.2)' }}>
                 {formatUpokt(projectedEntryUpokt, 1)}
               </strong>
               <span className="kpi-foot" style={{ color: 'var(--text)' }}>
@@ -191,13 +191,13 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
           </div>
           
           <div className="calculator-actions" style={{ marginBottom: '20px' }}>
-            <button type="button" className="calculator-action" onClick={resetTopChains} style={{ background: 'var(--panel-strong)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+            <button type="button" className="btn btn-secondary" onClick={resetTopChains} style={{ fontSize: '12px' }}>
               Top 10 Default
             </button>
-            <button type="button" className="calculator-action" onClick={() => setSelectedIds(services.map((service) => service.serviceId))}>
+            <button type="button" className="btn btn-primary" onClick={() => setSelectedIds(services.map((service) => service.serviceId))} style={{ fontSize: '12px' }}>
               Select All
             </button>
-            <button type="button" className="calculator-action" onClick={() => setSelectedIds([])} style={{ background: 'transparent', color: 'var(--muted)', boxShadow: 'none' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setSelectedIds([])} style={{ fontSize: '12px' }}>
               Clear
             </button>
           </div>

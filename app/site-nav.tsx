@@ -44,6 +44,16 @@ const NAV_ITEMS = [
         <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
       </svg>
     )
+  },
+  {
+    href: "/stakers",
+    label: "Stakers",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v20" />
+        <path d="M17 6.5c0-1.9-2.24-3.5-5-3.5s-5 1.6-5 3.5S9.24 10 12 10s5 1.6 5 3.5S14.76 17 12 17s-5-1.6-5-3.5" />
+      </svg>
+    )
   }
 ];
 
@@ -58,8 +68,13 @@ export default function SiteNav() {
   return (
     <header className="site-header">
       <Link href="/" className="site-brand" aria-label="Pocket Provider Dashboard home">
-        <span className="site-brand-mark">P</span>
-        <span>Pocket Providers</span>
+        <img 
+          src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" 
+          alt="Pocket Network Logo" 
+          height="32"
+          style={{ width: 'auto', display: 'block' }}
+        />
+        <span style={{ marginLeft: '4px' }}>Providers</span>
       </Link>
 
       <nav className="site-nav" aria-label="Primary navigation">

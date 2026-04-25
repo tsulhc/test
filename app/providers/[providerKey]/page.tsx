@@ -47,7 +47,8 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
         window,
         suppliers.map((supplier) => ({
           ...supplier,
-          revenueUpokt: supplier.revenueUpokt?.toString()
+          revenueUpokt: supplier.revenueUpokt?.toString(),
+          stakeUpokt: supplier.stakeUpokt?.toString()
         })) satisfies SerializedSupplierMember[]
       ] as const;
     })

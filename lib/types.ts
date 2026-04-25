@@ -15,7 +15,12 @@ export type SupplierMember = {
   domain: string;
   relays?: number;
   revenueUpokt?: bigint;
+  stakeUpokt?: bigint;
   chainCount?: number;
+  serviceCount?: number;
+  operatorRevSharePercent?: number;
+  ownerRevSharePercent?: number;
+  otherRevSharePercent?: number;
   detailAvailable?: boolean;
 };
 
@@ -81,8 +86,9 @@ export type SerializedProviderChainStats = Omit<ProviderChainStats, "revenueUpok
   revenueUpokt: string;
 };
 
-export type SerializedSupplierMember = Omit<SupplierMember, "revenueUpokt"> & {
+export type SerializedSupplierMember = Omit<SupplierMember, "revenueUpokt" | "stakeUpokt"> & {
   revenueUpokt?: string;
+  stakeUpokt?: string;
 };
 
 export type SerializedProviderStats = Omit<ProviderStats, "revenueUpokt" | "chains" | "suppliers"> & {
@@ -119,6 +125,11 @@ export type SupplierDirectoryEntry = {
   providerKey: string;
   providerLabel: string;
   providerDomain: string;
+  stakeUpokt?: bigint;
+  serviceCount?: number;
+  operatorRevSharePercent?: number;
+  ownerRevSharePercent?: number;
+  otherRevSharePercent?: number;
 };
 
 export type SupplierDirectory = Record<string, SupplierDirectoryEntry>;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
+import { formatCompactNumber, formatCompactUpokt, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
 import type { SerializedDashboardData, SerializedProviderStats } from "@/lib/types";
 
 type SortKey = "revenue" | "relays" | "suppliers" | "services" | "efficiency";
@@ -101,7 +101,7 @@ export default function ProvidersExplorerView({ data }: ProvidersExplorerViewPro
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Cumulative Revenue</span>
-            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
+            <strong style={{ color: 'var(--accent)' }}>{formatCompactUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Relay Volume</span>

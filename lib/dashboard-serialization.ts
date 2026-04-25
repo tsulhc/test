@@ -9,7 +9,8 @@ export function serializeDashboardData(data: DashboardData): SerializedDashboard
       revenueUpokt: provider.revenueUpokt.toString(),
       suppliers: provider.suppliers.map((supplier) => ({
         ...supplier,
-        revenueUpokt: supplier.revenueUpokt?.toString()
+        revenueUpokt: supplier.revenueUpokt?.toString(),
+        stakeUpokt: supplier.stakeUpokt?.toString()
       })),
       chains: provider.chains.map((chain) => ({
         ...chain,

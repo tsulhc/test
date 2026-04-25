@@ -99,7 +99,7 @@ export default function StakersView({ providers, hasData }: StakersViewProps) {
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
             <span className="hero-highlight-label">Leader</span>
-            <strong style={{ color: "var(--accent)" }}>{topProvider?.providerLabel ?? "n/a"}</strong>
+            <strong className="summary-card-wrap" style={{ color: "var(--accent)" }} title={topProvider?.providerLabel ?? "n/a"}>{topProvider?.providerLabel ?? "n/a"}</strong>
           </article>
         </div>
       </section>

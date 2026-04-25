@@ -17,7 +17,7 @@ function isWindow(value: string | undefined): value is TimeWindow {
 
 export default async function Home({ searchParams }: PageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const initialWindow = isWindow(resolvedSearchParams.window) ? resolvedSearchParams.window : "24h";
+  const initialWindow = isWindow(resolvedSearchParams.window) ? resolvedSearchParams.window : "30d";
 
   const initialResult = getDashboardDataSafe(initialWindow);
   const initialData = initialResult.data ? serializeDashboardData(initialResult.data) : null;

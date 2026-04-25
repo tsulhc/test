@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { formatCompactNumber, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
+import { formatCompactNumber, formatCompactUpokt, formatDecimal, formatInteger, formatUsd, formatUpokt } from "@/lib/format";
 import { buildAllocatedServiceOpportunity, DEFAULT_NEW_PROVIDER_SUPPLIERS } from "@/lib/opportunities";
 import type { SerializedDashboardData, SerializedServiceStats } from "@/lib/types";
 
@@ -110,7 +110,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Aggregate Pool</span>
-            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
+            <strong style={{ color: 'var(--accent)' }}>{formatCompactUpokt(BigInt(data.totalRevenueUpokt), 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Total Traffic</span>

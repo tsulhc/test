@@ -166,7 +166,13 @@ function ProviderRevenueChart({
 function OpportunityMap({ services, totalRevenue }: { services: SerializedServiceStats[]; totalRevenue: string }) {
   const topServices = services
     .map((service) => buildAllocatedServiceOpportunity(service, DEFAULT_NEW_PROVIDER_SUPPLIERS, DEFAULT_NEW_PROVIDER_SUPPLIERS))
-    .sort((a, b) => b.opportunityScore - a.opportunityScore || b.projectedRevenuePerSupplierUpokt > a.projectedRevenuePerSupplierUpokt ? 1 : -1)
+    .filter((service) => service.projectedRevenueUpokt > 0n && service.projectedRevenuePerSupplierUpokt > 0n)
+    .sort((a, b) => {
+      const scoreGap = b.opportunityScore - a.opportunityScore;
+      if (scoreGap !== 0) return scoreGap;
+      if (b.projectedRevenuePerSupplierUpokt === a.projectedRevenuePerSupplierUpokt) return 0;
+      return b.projectedRevenuePerSupplierUpokt > a.projectedRevenuePerSupplierUpokt ? 1 : -1;
+    })
     .slice(0, 8);
   const maxOpportunity = Math.max(
     ...topServices.map((service) => toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability),
@@ -175,6 +181,16 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
 
   return (
     <div className="opportunity-grid">
+      {topServices.length === 0 && (
+        <div className="opportunity-card">
+          <div className="opportunity-head">
+            <div>
+              <strong style={{ fontSize: '1.1rem' }}>No revenue-positive opportunities yet</strong>
+              <div className="muted">Services with easy slots but zero projected POKT are excluded from this view.</div>
+            </div>
+          </div>
+        </div>
+      )}
       {topServices.map((service) => {
         const width = Math.max(10, Math.round(((toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability) / maxOpportunity) * 100));
         const share = getShare(service.projectedRevenueUpokt.toString(), totalRevenue);

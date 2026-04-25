@@ -33,6 +33,18 @@ export function formatUpokt(upokt: bigint, maximumFractionDigits = 2): string {
   return `${sign}${wholeFormatted}.${fractionString} POKT`;
 }
 
+export function formatCompactUpokt(upokt: bigint, maximumFractionDigits = 1): string {
+  const value = Number(upokt) / UPOKT_PER_POKT;
+  return `${formatCompactNumberWithDigits(value, maximumFractionDigits)} POKT`;
+}
+
+export function formatCompactNumberWithDigits(value: number, maximumFractionDigits = 1): string {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits
+  }).format(value);
+}
+
 export function formatRelativeRange(window: string): string {
   switch (window) {
     case "24h":
@@ -60,6 +72,15 @@ export function formatUsd(value: number, maximumFractionDigits = 0): string {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
+    maximumFractionDigits
+  }).format(value);
+}
+
+export function formatCompactUsd(value: number, maximumFractionDigits = 1): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
     maximumFractionDigits
   }).format(value);
 }

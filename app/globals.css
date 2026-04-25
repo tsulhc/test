@@ -771,6 +771,7 @@ code {
 .explorer-summary-card {
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -778,10 +779,20 @@ code {
 }
 
 .explorer-summary-card strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: normal;
+  white-space: normal;
   font-family: var(--font-accent);
   font-size: clamp(1.4rem, 3vw, 2rem);
   font-variant-numeric: tabular-nums;
   font-weight: 800;
+}
+
+.summary-card-wrap {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.1;
 }
 
 .explorer-toolbar {

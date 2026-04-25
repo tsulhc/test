@@ -150,6 +150,11 @@ type PoktscanSupplierNode = {
   } | null;
 };
 
+type SupplierRevShare = {
+  address?: string;
+  rev_share_percentage?: string | number | null;
+};
+
 type ProviderAggregateRow = {
   providerKey: string;
   providerLabel: string;
@@ -179,11 +184,15 @@ type SuppliersResponse = {
   supplier?: Array<{
     owner_address: string;
     operator_address: string;
+    stake?: {
+      amount?: string | number | null;
+    };
     services?: Array<{
       service_id?: string;
       endpoints?: Array<{
         url: string;
       }>;
+      rev_share?: SupplierRevShare[];
     }>;
   }>;
   pagination?: {
@@ -259,7 +268,7 @@ type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "provi
   totalRevenueUpokt: string;
   providers: Array<Omit<ProviderStats, "revenueUpokt" | "chains" | "suppliers"> & {
     revenueUpokt: string;
-    suppliers: Array<Omit<SupplierMember, "revenueUpokt"> & { revenueUpokt?: string }>;
+    suppliers: Array<Omit<SupplierMember, "revenueUpokt" | "stakeUpokt"> & { revenueUpokt?: string; stakeUpokt?: string }>;
     chains: Array<{ serviceId: string; serviceName: string; relays: number; revenueUpokt: string }>;
   }>;
   services: Array<Omit<ServiceStats, "revenueUpokt"> & { revenueUpokt: string }>;
@@ -714,6 +723,44 @@ function parseNumericBigInt(value: string | number | null | undefined): bigint {
   return BigInt(normalized || "0");
 }
 
+function summarizeRevShare(entries: SupplierRevShare[] | undefined, ownerAddress: string, operatorAddress: string): {
+  operatorRevSharePercent?: number;
+  ownerRevSharePercent?: number;
+  otherRevSharePercent?: number;
+} {
+  if (!entries || entries.length === 0) {
+    return {};
+  }
+
+  let operatorRevSharePercent = 0;
+  let ownerRevSharePercent = 0;
+  let otherRevSharePercent = 0;
+
+  for (const entry of entries) {
+    if (!entry?.address) continue;
+    const share = parseNumeric(entry.rev_share_percentage);
+    if (!Number.isFinite(share) || share <= 0) continue;
+
+    if (entry.address === operatorAddress) {
+      operatorRevSharePercent += share;
+      continue;
+    }
+
+    if (entry.address === ownerAddress) {
+      ownerRevSharePercent += share;
+      continue;
+    }
+
+    otherRevSharePercent += share;
+  }
+
+  return {
+    operatorRevSharePercent: operatorRevSharePercent > 0 ? operatorRevSharePercent : undefined,
+    ownerRevSharePercent: ownerRevSharePercent > 0 ? ownerRevSharePercent : undefined,
+    otherRevSharePercent: otherRevSharePercent > 0 ? otherRevSharePercent : undefined
+  };
+}
+
 function serializeDashboardData(data: DashboardData): SerializedDashboardCache {
   return {
     ...data,
@@ -723,7 +770,8 @@ function serializeDashboardData(data: DashboardData): SerializedDashboardCache {
       revenueUpokt: provider.revenueUpokt.toString(),
       suppliers: provider.suppliers.map((supplier) => ({
         ...supplier,
-        revenueUpokt: supplier.revenueUpokt?.toString()
+        revenueUpokt: supplier.revenueUpokt?.toString(),
+        stakeUpokt: supplier.stakeUpokt?.toString()
       })),
       chains: provider.chains.map((chain) => ({
         ...chain,
@@ -768,7 +816,8 @@ function deserializeDashboardData(data: SerializedDashboardCache): DashboardData
       revenueUpokt: BigInt(provider.revenueUpokt),
       suppliers: provider.suppliers.map((supplier) => ({
         ...supplier,
-        revenueUpokt: supplier.revenueUpokt ? BigInt(supplier.revenueUpokt) : undefined
+        revenueUpokt: supplier.revenueUpokt ? BigInt(supplier.revenueUpokt) : undefined,
+        stakeUpokt: supplier.stakeUpokt ? BigInt(supplier.stakeUpokt) : undefined
       })),
       chains: provider.chains.map((chain) => ({
         ...chain,
@@ -885,11 +934,28 @@ const getSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
 
     for (const supplier of response.supplier ?? []) {
       const endpointUrls = (supplier.services ?? []).flatMap((service) => (service.endpoints ?? []).map((endpoint) => endpoint.url));
-      directory[supplier.operator_address] = deriveProviderIdentity(
+      const activeServices = supplier.services ?? [];
+      const serviceCount = new Set(
+        activeServices
+          .map((service) => service.service_id)
+          .filter((serviceId): serviceId is string => Boolean(serviceId))
+      ).size;
+      const revShareSummaries = activeServices.map((service) => summarizeRevShare(service.rev_share, supplier.owner_address, supplier.operator_address));
+      const revShareCount = revShareSummaries.length || 1;
+      const baseIdentity = deriveProviderIdentity(
         supplier.operator_address,
         supplier.owner_address,
         endpointUrls
       );
+
+      directory[supplier.operator_address] = {
+        ...baseIdentity,
+        stakeUpokt: parseNumericBigInt(supplier.stake?.amount),
+        serviceCount,
+        operatorRevSharePercent: revShareSummaries.reduce((sum, summary) => sum + (summary.operatorRevSharePercent ?? 0), 0) / revShareCount,
+        ownerRevSharePercent: revShareSummaries.reduce((sum, summary) => sum + (summary.ownerRevSharePercent ?? 0), 0) / revShareCount,
+        otherRevSharePercent: revShareSummaries.reduce((sum, summary) => sum + (summary.otherRevSharePercent ?? 0), 0) / revShareCount
+      };
     }
 
     nextKey = response.pagination?.next_key ?? "";
@@ -936,6 +1002,7 @@ const getServiceSupplierCounts = cache(async (): Promise<ServiceSupplierCounts> 
 
 const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
   const directory: SupplierDirectory = {};
+  const restDirectory = await getSupplierDirectory();
   let offset = 0;
 
   while (true) {
@@ -966,6 +1033,8 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
     for (const supplier of nodes) {
       if (!supplier) continue;
 
+      const restEntry = restDirectory[supplier.operatorId];
+
       const domains = (supplier.serviceConfigs?.nodes ?? []).flatMap((config) => config?.domains ?? []);
       const endpointUrls = (supplier.serviceConfigs?.nodes ?? []).flatMap((config) =>
         (config?.endpoints ?? []).flatMap((endpoint) => (endpoint?.url ? [endpoint.url] : []))
@@ -981,15 +1050,33 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
           ownerAddress: supplier.ownerId,
           providerKey,
           providerLabel: getProviderLabel(providerKey),
-          providerDomain: providerKey
+          providerDomain: providerKey,
+          stakeUpokt: restEntry?.stakeUpokt,
+          serviceCount: restEntry?.serviceCount,
+          operatorRevSharePercent: restEntry?.operatorRevSharePercent,
+          ownerRevSharePercent: restEntry?.ownerRevSharePercent,
+          otherRevSharePercent: restEntry?.otherRevSharePercent
         };
         continue;
       }
 
-      directory[supplier.operatorId] = deriveProviderIdentity(supplier.operatorId, supplier.ownerId, endpointUrls);
+      directory[supplier.operatorId] = {
+        ...deriveProviderIdentity(supplier.operatorId, supplier.ownerId, endpointUrls),
+        stakeUpokt: restEntry?.stakeUpokt,
+        serviceCount: restEntry?.serviceCount,
+        operatorRevSharePercent: restEntry?.operatorRevSharePercent,
+        ownerRevSharePercent: restEntry?.ownerRevSharePercent,
+        otherRevSharePercent: restEntry?.otherRevSharePercent
+      };
     }
 
     offset += nodes.length;
+  }
+
+  for (const [operatorAddress, supplier] of Object.entries(restDirectory)) {
+    if (!directory[operatorAddress]) {
+      directory[operatorAddress] = supplier;
+    }
   }
 
   return directory;
@@ -1118,7 +1205,12 @@ function buildDashboardFromProviderRows(
         domain: row.providerDomain,
         relays: 0,
         revenueUpokt: 0n,
+        stakeUpokt: supplierDirectory[row.supplierOperatorAddress]?.stakeUpokt,
         chainCount: 0,
+        serviceCount: supplierDirectory[row.supplierOperatorAddress]?.serviceCount,
+        operatorRevSharePercent: supplierDirectory[row.supplierOperatorAddress]?.operatorRevSharePercent,
+        ownerRevSharePercent: supplierDirectory[row.supplierOperatorAddress]?.ownerRevSharePercent,
+        otherRevSharePercent: supplierDirectory[row.supplierOperatorAddress]?.otherRevSharePercent,
         detailAvailable: true
       };
 
@@ -1190,6 +1282,11 @@ function buildDashboardFromProviderRows(
       operatorAddress: supplier.operatorAddress,
       ownerAddress: supplier.ownerAddress,
       domain: supplier.providerDomain,
+      stakeUpokt: supplier.stakeUpokt,
+      serviceCount: supplier.serviceCount,
+      operatorRevSharePercent: supplier.operatorRevSharePercent,
+      ownerRevSharePercent: supplier.ownerRevSharePercent,
+      otherRevSharePercent: supplier.otherRevSharePercent,
       detailAvailable: false
     });
     provider.supplierCount = provider.suppliers.length;
@@ -1290,7 +1387,12 @@ function buildDashboard(
         domain: supplierInfo.providerDomain,
         relays: 0,
         revenueUpokt: 0n,
+        stakeUpokt: supplierInfo.stakeUpokt,
         chainCount: 0,
+        serviceCount: supplierInfo.serviceCount,
+        operatorRevSharePercent: supplierInfo.operatorRevSharePercent,
+        ownerRevSharePercent: supplierInfo.ownerRevSharePercent,
+        otherRevSharePercent: supplierInfo.otherRevSharePercent,
         detailAvailable: true
       });
       provider.supplierCount = provider.suppliers.length;
@@ -1752,7 +1854,12 @@ export const getProviderSupplierBreakdown = cache(async (providerKey: string, wi
         domain: supplierInfo.providerDomain,
         relays: 0,
         revenueUpokt: 0n,
+        stakeUpokt: supplierInfo.stakeUpokt,
         chainCount: 0,
+        serviceCount: supplierInfo.serviceCount,
+        operatorRevSharePercent: supplierInfo.operatorRevSharePercent,
+        ownerRevSharePercent: supplierInfo.ownerRevSharePercent,
+        otherRevSharePercent: supplierInfo.otherRevSharePercent,
         detailAvailable: true
       };
 

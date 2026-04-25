@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import TimeseriesPanel from "@/app/timeseries-panel";
-import { formatCompactNumber, formatDecimal, formatInteger, formatPercent, formatUsd, formatUpokt } from "@/lib/format";
+import { formatCompactNumber, formatCompactUpokt, formatCompactUsd, formatDecimal, formatInteger, formatPercent, formatUsd, formatUpokt } from "@/lib/format";
 import { getDashboardDataSafe, getNetworkDailyHistory } from "@/lib/pocket";
 
 export const metadata = {
@@ -82,11 +82,11 @@ export default async function RewardsPage() {
         <div className="explorer-summary-grid">
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Cumulative Rewards</span>
-            <strong style={{ color: 'var(--accent)' }}>{formatUpokt(data.totalRevenueUpokt, 1)}</strong>
+            <strong style={{ color: 'var(--accent)' }}>{formatCompactUpokt(data.totalRevenueUpokt, 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">USD Equivalent</span>
-            <strong style={{ color: 'var(--text)' }}>{formatUsd(toPoktNumber(data.totalRevenueUpokt) * data.poktPriceUsd, 0)}</strong>
+            <strong style={{ color: 'var(--text)' }}>{formatCompactUsd(toPoktNumber(data.totalRevenueUpokt) * data.poktPriceUsd, 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Yield / 1k Relays</span>

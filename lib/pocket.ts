@@ -241,7 +241,7 @@ const RPC_URLS = Array.from(
 
 const SERVICES_PATH = "/pokt-network/poktroll/service/service";
 const SUPPLIERS_PATH = "/pokt-network/poktroll/supplier/supplier";
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 60 * 60 * 1000;
 const DEFAULT_RPC_TIMEOUT_MS = 5_000;
 const BLOCK_RESULTS_TIMEOUT_MS = 8_000;
 const SETTLEMENT_EVENT_TYPE = "pocket.tokenomics.EventClaimSettled";

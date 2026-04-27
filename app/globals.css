@@ -728,6 +728,114 @@ code {
   gap: 24px;
 }
 
+.provider-loading-shell {
+  position: relative;
+}
+
+.route-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(0, 194, 255, 0.12);
+}
+
+.route-loading-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--green), transparent);
+  animation: route-loading-slide 1.2s var(--ease) infinite;
+}
+
+.provider-loading-card {
+  overflow: hidden;
+  position: relative;
+}
+
+.provider-loading-card::after,
+.provider-loading-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.045) 45%, transparent 80%);
+  transform: translateX(-100%);
+  animation: provider-loading-shimmer 1.8s var(--ease) infinite;
+}
+
+.provider-loading-tile {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  min-height: 150px;
+}
+
+.provider-loading-line {
+  display: block;
+  width: 70%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.provider-loading-line-small {
+  width: 42%;
+  height: 10px;
+}
+
+.provider-loading-line-large {
+  width: 82%;
+  height: 28px;
+  background: rgba(0, 194, 255, 0.12);
+}
+
+.provider-loading-chart {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  height: 260px;
+  margin-top: 32px;
+}
+
+.provider-loading-chart span {
+  display: block;
+  min-height: 12px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, rgba(0, 194, 255, 0.38), rgba(0, 194, 255, 0.08));
+  animation: provider-loading-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes route-loading-slide {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes provider-loading-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes provider-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 .provider-back-link {
   width: fit-content;
 }

@@ -284,6 +284,20 @@ type PoktscanClaimAggregate = {
   } | null;
 };
 
+type ProviderDailyHistoryCacheEntry = Omit<ProviderDailyHistoryPoint, "revenueUpokt"> & {
+  revenueUpokt: string;
+};
+
+type SupplierMemberCacheEntry = Omit<SupplierMember, "revenueUpokt" | "stakeUpokt"> & {
+  revenueUpokt?: string;
+  stakeUpokt?: string;
+};
+
+type ProviderDataCache<T> = {
+  updatedAt: string;
+  data: T;
+};
+
 function buildRpcUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -829,6 +843,66 @@ function deserializeDashboardData(data: SerializedDashboardCache): DashboardData
       revenueUpokt: BigInt(service.revenueUpokt)
     }))
   };
+}
+
+function getProviderDataCache<T>(key: string): T | null {
+  const cached = getMeta(key);
+  if (!cached) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(cached) as ProviderDataCache<T>;
+    if (Date.now() - new Date(parsed.updatedAt).getTime() > CACHE_TTL_MS) {
+      return null;
+    }
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function setProviderDataCache<T>(key: string, data: T): void {
+  setMeta(key, JSON.stringify({ updatedAt: new Date().toISOString(), data } satisfies ProviderDataCache<T>));
+}
+
+function getProviderDailyHistoryCacheKey(providerKey: string, days: number): string {
+  return `provider_daily_history:${providerKey}:${days}`;
+}
+
+function getProviderSupplierBreakdownCacheKey(providerKey: string, window: TimeWindow): string {
+  return `provider_supplier_breakdown:${providerKey}:${window}`;
+}
+
+function serializeProviderDailyHistory(points: ProviderDailyHistoryPoint[]): ProviderDailyHistoryCacheEntry[] {
+  return points.map((point) => ({
+    ...point,
+    revenueUpokt: point.revenueUpokt.toString()
+  }));
+}
+
+function deserializeProviderDailyHistory(points: ProviderDailyHistoryCacheEntry[]): ProviderDailyHistoryPoint[] {
+  return points.map((point) => ({
+    ...point,
+    revenueUpokt: BigInt(point.revenueUpokt)
+  }));
+}
+
+function serializeSupplierMembers(suppliers: SupplierMember[]): SupplierMemberCacheEntry[] {
+  return suppliers.map((supplier) => ({
+    ...supplier,
+    revenueUpokt: supplier.revenueUpokt?.toString(),
+    stakeUpokt: supplier.stakeUpokt?.toString()
+  }));
+}
+
+function deserializeSupplierMembers(suppliers: SupplierMemberCacheEntry[]): SupplierMember[] {
+  return suppliers.map((supplier) => ({
+    ...supplier,
+    revenueUpokt: supplier.revenueUpokt ? BigInt(supplier.revenueUpokt) : undefined,
+    stakeUpokt: supplier.stakeUpokt ? BigInt(supplier.stakeUpokt) : undefined
+  }));
 }
 
 function hasServiceSupplierCounts(data: DashboardData | null | undefined): data is DashboardData {
@@ -1761,6 +1835,12 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
     return [];
   }
 
+  const cacheKey = getProviderDailyHistoryCacheKey(providerKey, days);
+  const cached = getProviderDataCache<ProviderDailyHistoryCacheEntry[]>(cacheKey);
+  if (cached) {
+    return deserializeProviderDailyHistory(cached);
+  }
+
   const end = new Date();
   const start = addDays(end, -(days - 1));
 
@@ -1817,6 +1897,7 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
       );
     }
 
+    setProviderDataCache(cacheKey, serializeProviderDailyHistory(series));
     return series;
   } catch {
     return [];
@@ -1826,6 +1907,12 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
 export const getProviderSupplierBreakdown = cache(async (providerKey: string, window: TimeWindow): Promise<SupplierMember[]> => {
   if (!providerKey) {
     return [];
+  }
+
+  const cacheKey = getProviderSupplierBreakdownCacheKey(providerKey, window);
+  const cached = getProviderDataCache<SupplierMemberCacheEntry[]>(cacheKey);
+  if (cached) {
+    return deserializeSupplierMembers(cached);
   }
 
   try {
@@ -1873,7 +1960,7 @@ export const getProviderSupplierBreakdown = cache(async (providerKey: string, wi
       supplierChainMap.set(supplierId, chains);
     }
 
-    return Array.from(supplierMap.values())
+    const suppliers = Array.from(supplierMap.values())
       .map((supplier) => ({
         ...supplier,
         chainCount: supplierChainMap.get(supplier.operatorAddress)?.size ?? 0
@@ -1881,6 +1968,9 @@ export const getProviderSupplierBreakdown = cache(async (providerKey: string, wi
       .sort((a, b) => (b.revenueUpokt ?? 0n) === (a.revenueUpokt ?? 0n)
         ? a.operatorAddress.localeCompare(b.operatorAddress)
         : (b.revenueUpokt ?? 0n) > (a.revenueUpokt ?? 0n) ? 1 : -1);
+
+    setProviderDataCache(cacheKey, serializeSupplierMembers(suppliers));
+    return suppliers;
   } catch {
     return [];
   }

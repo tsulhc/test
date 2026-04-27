@@ -40,20 +40,14 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
     revenueUpokt: point.revenueUpokt.toString()
   })) satisfies SerializedProviderDailyHistoryPoint[];
 
-  const supplierBreakdowns = await Promise.all(
-    WINDOWS.map(async (window) => {
-      const suppliers = await getProviderSupplierBreakdown(providerKey, window);
-      return [
-        window,
-        suppliers.map((supplier) => ({
-          ...supplier,
-          revenueUpokt: supplier.revenueUpokt?.toString(),
-          stakeUpokt: supplier.stakeUpokt?.toString()
-        })) satisfies SerializedSupplierMember[]
-      ] as const;
-    })
-  );
-  const supplierBreakdownByWindow = Object.fromEntries(supplierBreakdowns) as Record<TimeWindow, SerializedSupplierMember[]>;
+  const initialSupplierBreakdown = (await getProviderSupplierBreakdown(providerKey, initialWindow)).map((supplier) => ({
+    ...supplier,
+    revenueUpokt: supplier.revenueUpokt?.toString(),
+    stakeUpokt: supplier.stakeUpokt?.toString()
+  })) satisfies SerializedSupplierMember[];
+  const supplierBreakdownByWindow = Object.fromEntries(
+    WINDOWS.map((window) => [window, window === initialWindow ? initialSupplierBreakdown : []] as const)
+  ) as Record<TimeWindow, SerializedSupplierMember[]>;
 
   return (
     <ProviderDetailView

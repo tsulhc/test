@@ -1904,122 +1904,152 @@ code {
   font-weight: 600;
 }
 
-@media (max-width: 1180px) {
-  .hero-main,
-  .hero-support-grid,
-  .section-grid,
-  .section-grid-visual,
+/* --- Responsive Overhaul --- */
+
+@media (max-width: 1200px) {
+  .section-grid, 
+  .hero-support-grid, 
   .explorer-hero,
-  .explorer-summary-grid,
-  .explorer-toolbar,
-  .timeseries-metrics,
-  .provider-detail-grid-three,
-  .calculator-layout,
-  .calculator-kpis,
-  .calculator-meta-grid,
-  .provider-kpi-grid,
-  .provider-history-summary,
-  .provider-timescale-grid,
-  .kpi-grid,
-  .donut-grid {
+  .calculator-layout {
     grid-template-columns: 1fr;
+  }
+  
+  .explorer-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-detail-grid-three {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 900px) {
+  .kpi-grid, 
+  .provider-kpi-grid, 
+  .provider-timescale-grid,
+  .donut-grid,
+  .timeseries-metrics,
+  .calculator-kpis,
+  .calculator-meta-grid,
+  .provider-history-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
   .site-header {
-    position: static;
-    align-items: flex-start;
     flex-direction: column;
-    padding: 24px;
-    gap: 24px;
+    padding: 16px;
+    gap: 16px;
+    align-items: center;
+    position: static;
   }
 
   .site-nav {
-    justify-content: flex-start;
     width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .site-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .site-nav-link {
-    flex: 1;
-    text-align: center;
-    padding: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .site-brand span {
+    display: none;
+  }
+
+  .kpi-grid, 
+  .provider-kpi-grid, 
+  .provider-timescale-grid,
+  .donut-grid,
+  .timeseries-metrics,
+  .calculator-kpis,
+  .calculator-meta-grid,
+  .provider-history-summary,
+  .provider-detail-grid-three {
+    grid-template-columns: 1fr;
   }
 
   .page {
-    width: min(100vw - 32px, 100%);
-    padding: 32px 0 64px;
+    padding: 24px 16px 80px;
+    width: 100%;
   }
 
-  .hero-showcase,
-  .hero-meta,
-  .narrative-card,
-  .section,
-  .kpi,
-  .provider-card,
-  .provider-head,
-  .calculator-assumption,
-  .calculator-checklist {
-    padding: 32px 24px;
+  .section, .panel, .provider-head {
+    padding: 24px 20px;
   }
 
-  .hero-copy-strong h1 {
-    font-size: 2.4rem;
-  }
-
-  .hero-highlight-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .calculator-item-head,
-  .calculator-item-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .provider-history-chart,
-  .timeseries-chart {
-    grid-template-columns: repeat(15, 40px);
+  .explorer-table-wrap, 
+  .mini-table-wrap {
+    margin: 0 -20px;
+    padding: 0 20px;
     overflow-x: auto;
-    padding-bottom: 16px;
-    margin: 0 -24px;
-    padding: 24px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mini-table {
+    min-width: 700px;
   }
 
   .calculator-assumption {
     grid-template-columns: 1fr;
+    text-align: center;
   }
 
-  .hero-bar-row,
-  .provider-row-top,
-  .service-row-top,
-  .provider-card-top,
-  .provider-head-top,
-  .provider-head-actions,
-  .section-title-row,
-  .chart-row-head,
-  .opportunity-head,
-  .opportunity-metric-row,
-  .opportunity-foot,
-  .meta-row,
-  .insight-row {
+  .calculator-input-group {
+    width: 100%;
+  }
+
+  .provider-head h1, .explorer-hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .provider-head-top, .provider-head-actions, .section-title-row {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .provider-window-tabs {
+    justify-content: center;
+    width: 100%;
   }
 
   .right {
-    width: 100%;
     text-align: left !important;
   }
 
-  .mini-table {
-    display: block;
+  /* Horizontal scrolling for charts on mobile */
+  .provider-history-chart, .timeseries-chart {
     overflow-x: auto;
-    margin: 0 -24px;
-    padding: 0 24px;
+    grid-template-columns: repeat(30, 45px); 
+    padding-bottom: 20px;
+    margin: 0 -20px;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    width: 100%;
   }
   
-  .explorer-table-wrap {
-    margin: 0 -24px;
-    padding: 0 24px;
+  .pill {
+    align-self: flex-start;
+  }
+
+  .calculator-kpi-value {
+    font-size: 1.8rem;
   }
 }

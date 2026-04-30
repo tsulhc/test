@@ -5,6 +5,9 @@ import type { SerializedDashboardData, SerializedNetworkDailyHistoryPoint, TimeW
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type PageProps = {
   searchParams?: Promise<{
     window?: string;

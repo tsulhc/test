@@ -9,6 +9,9 @@ export const metadata = {
   description: "Rank Pocket providers for stakers using historical gross yield, supplier rewards, and provider stability signals."
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
 export default function StakersPage() {

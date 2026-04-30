@@ -1899,7 +1899,8 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
 
     setProviderDataCache(cacheKey, serializeProviderDailyHistory(series));
     return series;
-  } catch {
+  } catch (error) {
+    console.warn(`Unable to load provider daily history for ${providerKey}`, error);
     return [];
   }
 });

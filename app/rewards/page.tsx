@@ -9,6 +9,9 @@ export const metadata = {
   description: "Provider-side Pocket rewards, methodology, and reward concentration across providers and services."
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function toPoktNumber(value: bigint): number {
   return Number(value) / 1_000_000;
 }

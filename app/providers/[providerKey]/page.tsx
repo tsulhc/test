@@ -5,6 +5,9 @@ import type { SerializedDashboardData, SerializedProviderDailyHistoryPoint, Seri
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type PageProps = {
   params: Promise<{
     providerKey: string;
@@ -18,8 +21,17 @@ function isWindow(value: string | undefined): value is TimeWindow {
   return value === "24h" || value === "7d" || value === "30d";
 }
 
+function safelyDecodePathSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default async function ProviderPage({ params, searchParams }: PageProps) {
-  const { providerKey } = await params;
+  const { providerKey: rawProviderKey } = await params;
+  const providerKey = safelyDecodePathSegment(rawProviderKey);
   const resolvedSearchParams = (await searchParams) ?? {};
   const initialWindow = isWindow(resolvedSearchParams.window) ? resolvedSearchParams.window : "24h";
 
@@ -34,8 +46,11 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
     [initialWindow, initialData] as const,
     ...otherEntries
   ]) as Record<TimeWindow, SerializedDashboardData | null>;
+  const providerDomain = Object.values(dataByWindow)
+    .flatMap((data) => data?.providers ?? [])
+    .find((provider) => provider.providerKey === providerKey)?.providerDomain ?? providerKey;
 
-  const history = (await getProviderDailyHistory(providerKey)).map((point) => ({
+  const history = (await getProviderDailyHistory(providerDomain)).map((point) => ({
     ...point,
     revenueUpokt: point.revenueUpokt.toString()
   })) satisfies SerializedProviderDailyHistoryPoint[];

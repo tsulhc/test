@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
+// ... (icons remain the same)
   { 
     href: "/", 
     label: "Dashboard",
@@ -64,20 +66,47 @@ function isActive(pathname: string, href: string): boolean {
 
 export default function SiteNav() {
   const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Close menu when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   return (
-    <header className="site-header">
-      <Link href="/" className="site-brand" aria-label="Pocket Provider Dashboard home">
-        <img 
-          src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" 
-          alt="Pocket Network Logo" 
-          height="32"
-          style={{ width: 'auto', display: 'block' }}
-        />
-        <span style={{ marginLeft: '4px' }}>Providers</span>
-      </Link>
+    <header className={`site-header${isMenuOpen ? " menu-is-open" : ""}`}>
+      <div className="site-header-main">
+        <Link href="/" className="site-brand" aria-label="Pocket Provider Dashboard home">
+          <img 
+            src="https://pocket.network/wp-content/uploads/2025/01/logo-white.png" 
+            alt="Pocket Network Logo" 
+            height="32"
+            style={{ width: 'auto', display: 'block' }}
+          />
+          <span style={{ marginLeft: '4px' }}>Providers</span>
+        </Link>
 
-      <nav className="site-nav" aria-label="Primary navigation">
+        <button 
+          className="mobile-menu-toggle" 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+        >
+          {isMenuOpen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      <nav className={`site-nav${isMenuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
           return (
@@ -85,7 +114,6 @@ export default function SiteNav() {
               key={item.href} 
               href={item.href} 
               className={`site-nav-link${active ? " active" : ""}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             >
               {item.icon}
               <span>{item.label}</span>

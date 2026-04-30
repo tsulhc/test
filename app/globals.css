@@ -81,7 +81,7 @@ a:hover {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -91,6 +91,36 @@ a:hover {
   background: rgba(10, 14, 26, 0.85);
   backdrop-filter: blur(20px);
   transition: var(--transition);
+}
+
+.site-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--panel-soft);
+  color: var(--accent);
+}
+
+@media (min-width: 769px) {
+  .site-header-main {
+    width: auto;
+  }
 }
 
 .site-brand,
@@ -1939,33 +1969,61 @@ code {
 @media (max-width: 768px) {
   .site-header {
     flex-direction: column;
-    padding: 16px;
-    gap: 16px;
-    align-items: center;
-    position: static;
+    padding: 16px 20px;
+    gap: 0;
+    align-items: flex-start;
+    position: sticky; /* Keep it sticky */
+    background: var(--bg-dark);
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
   }
 
   .site-nav {
+    display: none;
+    flex-direction: column;
     width: 100%;
-    justify-content: center;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    padding: 24px 0;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 16px;
+    background: var(--bg-dark);
   }
 
-  .site-nav::-webkit-scrollbar {
-    display: none;
+  .site-nav.is-open {
+    display: flex;
+    animation: fadeInDown 0.2s ease-out;
   }
 
   .site-nav-link {
-    padding: 8px 12px;
-    font-size: 13px;
-    white-space: nowrap;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    background: var(--panel-soft);
+    justify-content: flex-start;
+    font-size: 15px;
+  }
+
+  .site-nav-link.active {
+    background: var(--panel-strong);
+    color: var(--accent);
+    border-color: var(--border);
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .site-brand span {
-    display: none;
+    display: inline; /* Keep 'Providers' text visible as we have space now */
   }
 
   .kpi-grid, 

@@ -264,6 +264,37 @@ const dashboardCache = new Map<TimeWindow, { expiresAt: number; data: DashboardD
 const dashboardRefreshes = new Map<TimeWindow, Promise<DashboardData>>();
 let priceCache: { value: number; expiresAt: number } | null = null;
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function logDataInfo(message: string, context?: Record<string, unknown>): void {
+  console.info(`[pocket-dashboard:data] ${message}`, context ?? "");
+}
+
+function logDataWarning(message: string, context?: Record<string, unknown>): void {
+  console.warn(`[pocket-dashboard:data] ${message}`, context ?? "");
+}
+
+function logDataError(message: string, error: unknown, context?: Record<string, unknown>): void {
+  console.error(`[pocket-dashboard:data] ${message}`, {
+    ...context,
+    error: getErrorMessage(error)
+  });
+}
+
+function getGraphqlOperationName(query: string): string {
+  return query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] ?? "anonymous";
+}
+
 type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
   totalRevenueUpokt: string;
   providers: Array<Omit<ProviderStats, "revenueUpokt" | "chains" | "suppliers"> & {
@@ -367,24 +398,83 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function fetchPoktscan<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const response = await fetch(DEFAULT_POKTSCAN_URL, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json"
-    },
-    cache: "no-store",
-    body: JSON.stringify({ query, variables })
-  });
+  const operationName = getGraphqlOperationName(query);
+  const startedAt = Date.now();
+
+  let response: Response;
+  try {
+    response = await fetch(DEFAULT_POKTSCAN_URL, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json"
+      },
+      cache: "no-store",
+      body: JSON.stringify({ query, variables })
+    });
+  } catch (error) {
+    logDataError("Poktscan network request failed", error, {
+      operationName,
+      url: DEFAULT_POKTSCAN_URL,
+      variables
+    });
+    throw error;
+  }
 
   if (!response.ok) {
-    throw new Error(`Request failed for ${DEFAULT_POKTSCAN_URL}: ${response.status} ${response.statusText}`);
+    let body = "";
+    try {
+      body = (await response.text()).slice(0, 1000);
+    } catch (error) {
+      body = `Unable to read response body: ${getErrorMessage(error)}`;
+    }
+
+    const error = new Error(`Request failed for ${DEFAULT_POKTSCAN_URL}: ${response.status} ${response.statusText}`);
+    logDataError("Poktscan HTTP request failed", error, {
+      operationName,
+      url: DEFAULT_POKTSCAN_URL,
+      status: response.status,
+      statusText: response.statusText,
+      durationMs: Date.now() - startedAt,
+      variables,
+      body
+    });
+    throw error;
   }
 
-  const payload = (await response.json()) as { errors?: Array<{ message: string }> } & T;
-  if (payload.errors?.length) {
-    throw new Error(payload.errors.map((error) => error.message).join("; "));
+  let payload: { errors?: Array<{ message: string }> } & T;
+  try {
+    payload = (await response.json()) as { errors?: Array<{ message: string }> } & T;
+  } catch (error) {
+    logDataError("Poktscan JSON parsing failed", error, {
+      operationName,
+      url: DEFAULT_POKTSCAN_URL,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      variables
+    });
+    throw error;
   }
+
+  if (payload.errors?.length) {
+    const error = new Error(payload.errors.map((entry) => entry.message).join("; "));
+    logDataError("Poktscan GraphQL errors returned", error, {
+      operationName,
+      url: DEFAULT_POKTSCAN_URL,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      variables,
+      errors: payload.errors
+    });
+    throw error;
+  }
+
+  logDataInfo("Poktscan request completed", {
+    operationName,
+    status: response.status,
+    durationMs: Date.now() - startedAt,
+    variables
+  });
 
   return payload;
 }
@@ -1078,6 +1168,7 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
   const directory: SupplierDirectory = {};
   const restDirectory = await getSupplierDirectory();
   let offset = 0;
+  logDataInfo("Starting Poktscan supplier directory load", { restSupplierCount: Object.keys(restDirectory).length });
 
   while (true) {
     const response = await fetchPoktscan<PoktscanSuppliersResponse>(
@@ -1100,6 +1191,10 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
     );
 
     const nodes = response.data?.suppliers?.nodes ?? [];
+    logDataInfo("Poktscan supplier directory page received", {
+      offset,
+      nodeCount: nodes.length
+    });
     if (nodes.length === 0) {
       break;
     }
@@ -1153,6 +1248,7 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
     }
   }
 
+  logDataInfo("Poktscan supplier directory load completed", { supplierCount: Object.keys(directory).length });
   return directory;
 });
 
@@ -1572,6 +1668,8 @@ function buildDashboard(
 }
 
 async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardData> {
+  logDataInfo("Starting Poktscan dashboard load", { window });
+
   if (window === "24h") {
     const start = getWindowStart(window);
     const end = new Date();
@@ -1638,6 +1736,14 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
       });
     }
 
+    logDataInfo("Poktscan 24h dashboard aggregates received", {
+      window,
+      aggregateCount: claimsResponse.data?.claims?.groupedAggregates?.length ?? 0,
+      rowCount: rows.length,
+      indexerProcessedHeight: claimsResponse.data?.status?.lastProcessedHeight ?? null,
+      indexerTargetHeight: claimsResponse.data?.status?.targetHeight ?? null
+    });
+
     const latestHeight = claimsResponse.data?.status?.targetHeight ?? claimsResponse.data?.status?.lastProcessedHeight ?? 0;
     return buildDashboardFromProviderRows(window, latestHeight, rows, serviceSupplierCounts, supplierDirectory, poktPriceUsd, {
       dataSource: "poktscan",
@@ -1703,6 +1809,14 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
     });
   }
 
+  logDataInfo("Poktscan domain rewards dashboard aggregates received", {
+    window,
+    aggregateCount: rewardsResponse.data?.rewards?.groupedAggregates?.length ?? 0,
+    rowCount: rows.length,
+    indexerProcessedHeight: rewardsResponse.data?.status?.lastProcessedHeight ?? null,
+    indexerTargetHeight: rewardsResponse.data?.status?.targetHeight ?? null
+  });
+
   const latestHeight = rewardsResponse.data?.status?.targetHeight ?? rewardsResponse.data?.status?.lastProcessedHeight ?? 0;
   return buildDashboardFromProviderRows(window, latestHeight, rows, serviceSupplierCounts, supplierDirectory, poktPriceUsd, {
     dataSource: "poktscan",
@@ -1714,6 +1828,8 @@ async function loadDashboardFromPoktscan(window: TimeWindow): Promise<DashboardD
 }
 
 async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> {
+  logDataInfo("Starting RPC dashboard fallback load", { window });
+
   const [{ latestHeight }, serviceMap, serviceSupplierCounts, supplierDirectory, poktPriceUsd] = await Promise.all([
     getStatus(),
     getServiceMap(),
@@ -1723,6 +1839,12 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
   ]);
 
   const settlementBlocks = await getRecentSettlementBlocks(window, SAMPLE_BLOCKS_PER_WINDOW[window]);
+  logDataInfo("RPC settlement blocks loaded", {
+    window,
+    requestedBlocks: SAMPLE_BLOCKS_PER_WINDOW[window],
+    settlementBlockCount: settlementBlocks.length,
+    latestHeight
+  });
   const cachedBlocks = getCachedSettlementBlocks(settlementBlocks.map((block) => block.height));
   const missingSettlementBlocks = settlementBlocks.filter((block) => !cachedBlocks.has(block.height));
 
@@ -1766,6 +1888,13 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
     }
   }
 
+  logDataInfo("RPC settlement events loaded", {
+    window,
+    scannedHeights,
+    scannedSettlementHeights,
+    settlementEvents: settlements.length
+  });
+
   const dashboard = buildDashboard(window, latestHeight, settlements, serviceSupplierCounts, supplierDirectory, poktPriceUsd);
   const finalized: DashboardData = {
     ...dashboard,
@@ -1779,24 +1908,57 @@ async function loadDashboardFromRpc(window: TimeWindow): Promise<DashboardData> 
 async function refreshDashboard(window: TimeWindow): Promise<DashboardData> {
   const inFlight = dashboardRefreshes.get(window);
   if (inFlight) {
+    logDataInfo("Reusing in-flight dashboard refresh", { window });
     return inFlight;
   }
 
   const refreshPromise = (async () => {
     const stale = getCachedDashboardSnapshot(window);
+    logDataInfo("Starting dashboard refresh", {
+      window,
+      hasStaleSnapshot: Boolean(stale),
+      dataSource: stale?.dataSource ?? null,
+      latestHeight: stale?.latestHeight ?? null
+    });
 
     try {
       const dashboard = await loadDashboardFromPoktscan(window);
+      logDataInfo("Dashboard refresh completed from Poktscan", {
+        window,
+        latestHeight: dashboard.latestHeight,
+        activeProviders: dashboard.activeProviders,
+        activeChains: dashboard.activeChains,
+        totalRelays: dashboard.totalRelays,
+        settlementEvents: dashboard.settlementEvents
+      });
       return persistDashboard(window, dashboard);
-    } catch {
+    } catch (poktscanError) {
+      logDataError("Poktscan dashboard refresh failed; trying RPC fallback", poktscanError, { window });
       try {
-        return await loadDashboardFromRpc(window);
-      } catch {
+        const dashboard = await loadDashboardFromRpc(window);
+        logDataInfo("Dashboard refresh completed from RPC fallback", {
+          window,
+          latestHeight: dashboard.latestHeight,
+          activeProviders: dashboard.activeProviders,
+          activeChains: dashboard.activeChains,
+          totalRelays: dashboard.totalRelays,
+          settlementEvents: dashboard.settlementEvents
+        });
+        return dashboard;
+      } catch (rpcError) {
+        logDataError("RPC dashboard fallback failed", rpcError, { window });
         if (stale) {
+          logDataWarning("Serving stale dashboard snapshot after refresh failures", {
+            window,
+            dataSource: stale.dataSource,
+            latestHeight: stale.latestHeight,
+            indexerProcessedHeight: stale.indexerProcessedHeight ?? null,
+            indexerTargetHeight: stale.indexerTargetHeight ?? null
+          });
           return stale;
         }
 
-        throw new Error(`Unable to refresh dashboard for ${window}`);
+        throw new Error(`Unable to refresh dashboard for ${window}: Poktscan and RPC fallback failed`);
       }
     }
   })();
@@ -1832,17 +1994,29 @@ export async function getDashboardData(window: TimeWindow): Promise<DashboardDat
 
 export const getProviderDailyHistory = cache(async (providerKey: string, days = PROVIDER_HISTORY_DAYS): Promise<ProviderDailyHistoryPoint[]> => {
   if (!providerKey || providerKey.startsWith("owner:")) {
+    logDataWarning("Skipping provider daily history for unsupported provider key", { providerKey, days });
     return [];
   }
 
   const cacheKey = getProviderDailyHistoryCacheKey(providerKey, days);
   const cached = getProviderDataCache<ProviderDailyHistoryCacheEntry[]>(cacheKey);
   if (cached) {
+    logDataInfo("Provider daily history served from cache", {
+      providerKey,
+      days,
+      pointCount: cached.length
+    });
     return deserializeProviderDailyHistory(cached);
   }
 
   const end = new Date();
   const start = addDays(end, -(days - 1));
+  logDataInfo("Loading provider daily history from Poktscan", {
+    providerKey,
+    days,
+    start: toIsoDate(start),
+    end: toIsoDate(end)
+  });
 
   try {
     const response = await fetchPoktscan<PoktscanProviderDailyHistoryResponse>(
@@ -1885,6 +2059,13 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
       });
     }
 
+    logDataInfo("Provider daily history aggregates received", {
+      providerKey,
+      days,
+      aggregateCount: response.data?.rewards?.groupedAggregates?.length ?? 0,
+      nonZeroDays: Array.from(byDay.values()).filter((point) => point.relays > 0 || point.revenueUpokt > 0n).length
+    });
+
     const series: ProviderDailyHistoryPoint[] = [];
     for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
       const day = toIsoDate(cursor);
@@ -1900,23 +2081,30 @@ export const getProviderDailyHistory = cache(async (providerKey: string, days = 
     setProviderDataCache(cacheKey, serializeProviderDailyHistory(series));
     return series;
   } catch (error) {
-    console.warn(`Unable to load provider daily history for ${providerKey}`, error);
+    logDataError("Unable to load provider daily history", error, { providerKey, days });
     return [];
   }
 });
 
 export const getProviderSupplierBreakdown = cache(async (providerKey: string, window: TimeWindow): Promise<SupplierMember[]> => {
   if (!providerKey) {
+    logDataWarning("Skipping provider supplier breakdown for empty provider key", { providerKey, window });
     return [];
   }
 
   const cacheKey = getProviderSupplierBreakdownCacheKey(providerKey, window);
   const cached = getProviderDataCache<SupplierMemberCacheEntry[]>(cacheKey);
   if (cached) {
+    logDataInfo("Provider supplier breakdown served from cache", {
+      providerKey,
+      window,
+      supplierCount: cached.length
+    });
     return deserializeSupplierMembers(cached);
   }
 
   try {
+    logDataInfo("Loading provider supplier breakdown", { providerKey, window });
     const [serviceMap, supplierDirectory, aggregates] = await Promise.all([
       getServiceMap(),
       getPoktscanSupplierDirectory(),
@@ -1971,8 +2159,15 @@ export const getProviderSupplierBreakdown = cache(async (providerKey: string, wi
         : (b.revenueUpokt ?? 0n) > (a.revenueUpokt ?? 0n) ? 1 : -1);
 
     setProviderDataCache(cacheKey, serializeSupplierMembers(suppliers));
+    logDataInfo("Provider supplier breakdown loaded", {
+      providerKey,
+      window,
+      aggregateCount: aggregates.length,
+      supplierCount: suppliers.length
+    });
     return suppliers;
-  } catch {
+  } catch (error) {
+    logDataError("Unable to load provider supplier breakdown", error, { providerKey, window });
     return [];
   }
 });
@@ -2031,7 +2226,8 @@ export const getNetworkDailyHistory = cache(async (days = PROVIDER_HISTORY_DAYS)
     }
 
     return series;
-  } catch {
+  } catch (error) {
+    logDataError("Unable to load network daily history", error, { days });
     return [];
   }
 });
@@ -2098,7 +2294,8 @@ export const getServiceDailyHistory = cache(async (serviceId: string, days = PRO
     }
 
     return series;
-  } catch {
+  } catch (error) {
+    logDataError("Unable to load service daily history", error, { serviceId, days });
     return [];
   }
 });
@@ -2113,21 +2310,30 @@ export function getDashboardDataSafe(window: TimeWindow): { data: DashboardData 
   if (snapshot) {
     const cached = dashboardCache.get(window);
     if (!cached || cached.expiresAt <= Date.now()) {
-      void refreshDashboard(window);
+      logDataInfo("Dashboard snapshot is stale; refreshing in background", {
+        window,
+        latestHeight: snapshot.latestHeight,
+        dataSource: snapshot.dataSource,
+        expiresAt: cached?.expiresAt ? new Date(cached.expiresAt).toISOString() : null
+      });
+      void refreshDashboard(window).catch((error) => {
+        logDataError("Background dashboard refresh failed for stale snapshot", error, { window });
+      });
     }
 
     return { data: snapshot, status: "ready" };
   }
 
-  void refreshDashboard(window).catch(() => {
-    // Cold-start refresh failures should not take down the request path.
+  logDataWarning("Dashboard snapshot missing; starting cold refresh", { window });
+  void refreshDashboard(window).catch((error) => {
+    logDataError("Cold dashboard refresh failed", error, { window });
   });
   return { data: null, status: "warming" };
 }
 
 export function primeDashboardRefresh(window: TimeWindow): void {
-  void refreshDashboard(window).catch(() => {
-    // Background refresh failures are surfaced through stale snapshots and warming states.
+  void refreshDashboard(window).catch((error) => {
+    logDataError("Primed dashboard refresh failed", error, { window });
   });
 }
 

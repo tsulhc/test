@@ -24,6 +24,7 @@ import type {
 } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
+const WARMING_RETRY_MS = 5_000;
 
 type DashboardViewProps = {
   initialWindow: TimeWindow;
@@ -278,6 +279,14 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
     for (const entry of missingWindows) {
       loadWindow(entry, false);
     }
+
+    const retryId = globalThis.setInterval(() => {
+      for (const entry of missingWindows) {
+        loadWindow(entry, false);
+      }
+    }, WARMING_RETRY_MS);
+
+    return () => globalThis.clearInterval(retryId);
   }, [datasets]);
 
   if (!data) {

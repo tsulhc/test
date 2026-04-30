@@ -19,7 +19,8 @@ This repository does **not** implement the full RC1 architecture described in th
 
 Today, the project is intentionally lightweight:
 
-- a single Next.js application
+- a Next.js application for the UI and read-only API routes
+- a separate Node.js ingestion worker for external data collection
 - a small local SQLite cache for settlement blocks, metadata, and dashboard snapshots
 - `Poktscan` as the primary data source when available
 - direct Pocket RPC fallback when `Poktscan` is unavailable
@@ -80,10 +81,38 @@ Optional overrides:
 
 ```bash
 npm install
+npm run ingest
 npm run dev
 ```
 
 Then open `http://localhost:3000`.
+
+The UI reads local SQLite snapshots only. Run `npm run ingest` before opening the app on a fresh database.
+
+## Production Runtime
+
+Run the web process and ingestion worker separately:
+
+```bash
+npm run build
+npm run start
+npm run worker
+```
+
+With PM2:
+
+```bash
+pm2 start npm --name pocket-dashboard -- run start
+pm2 start npm --name pocket-worker -- run worker
+```
+
+The worker owns all Poktscan/RPC requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Poktscan directly.
+
+Optional worker interval override:
+
+```bash
+POCKET_INGEST_INTERVAL_MS=3600000 npm run worker
+```
 
 ## Verification
 
@@ -96,8 +125,8 @@ npm run build
 
 The app uses:
 
-- in-memory caching for short-lived dashboard responses
 - SQLite persistence for settlement blocks, metadata, and dashboard snapshots
+- `job_runs` records for ingestion success/failure tracking
 
 This keeps the public demo responsive and reduces repeated network fetches.
 

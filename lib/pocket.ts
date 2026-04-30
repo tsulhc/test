@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBlock, setDashboardCache, setMeta } from "@/lib/db";
+import { finishJobRun, getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBlock, setDashboardCache, setMeta, startJobRun } from "@/lib/db";
 import { PROVIDER_DOMAIN_LABEL_OVERRIDES, SUPPLIER_PROVIDER_OVERRIDES } from "@/lib/provider-overrides";
 import type {
   DashboardData,
@@ -369,6 +369,8 @@ type PoktscanClaimAggregate = {
   } | null;
 };
 
+type PoktscanClaimAggregateCacheEntry = PoktscanClaimAggregate;
+
 type ProviderDailyHistoryCacheEntry = Omit<ProviderDailyHistoryPoint, "revenueUpokt"> & {
   revenueUpokt: string;
 };
@@ -390,6 +392,10 @@ type SupplierDirectoryCachePayload = {
 type ProviderDataCache<T> = {
   updatedAt: string;
   data: T;
+};
+
+type NetworkDailyHistoryCacheEntry = Omit<NetworkDailyHistoryPoint, "revenueUpokt"> & {
+  revenueUpokt: string;
 };
 
 function buildRpcUrl(baseUrl: string, path: string): string {
@@ -581,6 +587,13 @@ async function fetchPoktscan<T>(query: string, variables?: Record<string, unknow
 }
 
 const getPoktscanClaimAggregates = cache(async (window: TimeWindow): Promise<PoktscanClaimAggregate[]> => {
+  const cacheKey = getPoktscanClaimAggregatesCacheKey(window);
+  const cached = getProviderDataCache<PoktscanClaimAggregateCacheEntry[]>(cacheKey);
+  if (cached) {
+    logDataInfo("Poktscan claim aggregates served from persistent cache", { window, aggregateCount: cached.length });
+    return cached;
+  }
+
   const start = getWindowStart(window);
   const response = await fetchPoktscan<PoktscanClaimSettledAggregatesResponse>(
     `query PoktscanClaimsBySupplier($start: Datetime!) {
@@ -607,7 +620,9 @@ const getPoktscanClaimAggregates = cache(async (window: TimeWindow): Promise<Pok
     }
   );
 
-  return response.data?.claims?.groupedAggregates ?? [];
+  const aggregates = response.data?.claims?.groupedAggregates ?? [];
+  setProviderDataCache(cacheKey, aggregates);
+  return aggregates;
 });
 
 async function getPoktPriceUsd(): Promise<number> {
@@ -1054,6 +1069,19 @@ function getProviderDataCache<T>(key: string): T | null {
   }
 }
 
+function getProviderDataSnapshot<T>(key: string): T | null {
+  const cached = getMeta(key);
+  if (!cached) {
+    return null;
+  }
+
+  try {
+    return (JSON.parse(cached) as ProviderDataCache<T>).data;
+  } catch {
+    return null;
+  }
+}
+
 function setProviderDataCache<T>(key: string, data: T): void {
   setMeta(key, JSON.stringify({ updatedAt: new Date().toISOString(), data } satisfies ProviderDataCache<T>));
 }
@@ -1064,6 +1092,18 @@ function getProviderDailyHistoryCacheKey(providerKey: string, days: number): str
 
 function getProviderSupplierBreakdownCacheKey(providerKey: string, window: TimeWindow): string {
   return `provider_supplier_breakdown:${providerKey}:${window}`;
+}
+
+function getNetworkDailyHistoryCacheKey(days: number): string {
+  return `network_daily_history:${days}`;
+}
+
+function getPoktscanClaimAggregatesCacheKey(window: TimeWindow): string {
+  return `poktscan_claim_aggregates:${window}`;
+}
+
+function getServiceDailyHistoryCacheKey(serviceId: string, days: number): string {
+  return `service_daily_history:${serviceId}:${days}`;
 }
 
 function serializeProviderDailyHistory(points: ProviderDailyHistoryPoint[]): ProviderDailyHistoryCacheEntry[] {
@@ -1094,6 +1134,40 @@ function deserializeSupplierMembers(suppliers: SupplierMemberCacheEntry[]): Supp
     revenueUpokt: supplier.revenueUpokt ? BigInt(supplier.revenueUpokt) : undefined,
     stakeUpokt: supplier.stakeUpokt ? BigInt(supplier.stakeUpokt) : undefined
   }));
+}
+
+function serializeNetworkDailyHistory(points: NetworkDailyHistoryPoint[]): NetworkDailyHistoryCacheEntry[] {
+  return points.map((point) => ({
+    ...point,
+    revenueUpokt: point.revenueUpokt.toString()
+  }));
+}
+
+function deserializeNetworkDailyHistory(points: NetworkDailyHistoryCacheEntry[]): NetworkDailyHistoryPoint[] {
+  return points.map((point) => ({
+    ...point,
+    revenueUpokt: BigInt(point.revenueUpokt)
+  }));
+}
+
+function getNetworkDailyHistorySnapshot(days = PROVIDER_HISTORY_DAYS): NetworkDailyHistoryPoint[] {
+  const cached = getProviderDataSnapshot<NetworkDailyHistoryCacheEntry[]>(getNetworkDailyHistoryCacheKey(days));
+  return cached ? deserializeNetworkDailyHistory(cached) : [];
+}
+
+function getProviderDailyHistorySnapshot(providerKey: string, days = PROVIDER_HISTORY_DAYS): ProviderDailyHistoryPoint[] {
+  const cached = getProviderDataSnapshot<ProviderDailyHistoryCacheEntry[]>(getProviderDailyHistoryCacheKey(providerKey, days));
+  return cached ? deserializeProviderDailyHistory(cached) : [];
+}
+
+function getProviderSupplierBreakdownSnapshot(providerKey: string, window: TimeWindow): SupplierMember[] {
+  const cached = getProviderDataSnapshot<SupplierMemberCacheEntry[]>(getProviderSupplierBreakdownCacheKey(providerKey, window));
+  return cached ? deserializeSupplierMembers(cached) : [];
+}
+
+function getServiceDailyHistorySnapshot(serviceId: string, days = PROVIDER_HISTORY_DAYS): ServiceDailyHistoryPoint[] {
+  const cached = getProviderDataSnapshot<NetworkDailyHistoryCacheEntry[]>(getServiceDailyHistoryCacheKey(serviceId, days));
+  return cached ? deserializeNetworkDailyHistory(cached) : [];
 }
 
 function serializeSupplierDirectory(directory: SupplierDirectory): Record<string, SupplierDirectoryCacheEntry> {
@@ -2150,6 +2224,22 @@ export async function getDashboardData(window: TimeWindow): Promise<DashboardDat
   return loadDashboard(window);
 }
 
+export function getNetworkDailyHistoryLocal(days = PROVIDER_HISTORY_DAYS): NetworkDailyHistoryPoint[] {
+  return getNetworkDailyHistorySnapshot(days);
+}
+
+export function getProviderDailyHistoryLocal(providerKey: string, days = PROVIDER_HISTORY_DAYS): ProviderDailyHistoryPoint[] {
+  return getProviderDailyHistorySnapshot(providerKey, days);
+}
+
+export function getProviderSupplierBreakdownLocal(providerKey: string, window: TimeWindow): SupplierMember[] {
+  return getProviderSupplierBreakdownSnapshot(providerKey, window);
+}
+
+export function getServiceDailyHistoryLocal(serviceId: string, days = PROVIDER_HISTORY_DAYS): ServiceDailyHistoryPoint[] {
+  return getServiceDailyHistorySnapshot(serviceId, days);
+}
+
 export const getProviderDailyHistory = cache(async (providerKey: string, days = PROVIDER_HISTORY_DAYS): Promise<ProviderDailyHistoryPoint[]> => {
   if (!providerKey || providerKey.startsWith("owner:")) {
     logDataWarning("Skipping provider daily history for unsupported provider key", { providerKey, days });
@@ -2383,6 +2473,7 @@ export const getNetworkDailyHistory = cache(async (days = PROVIDER_HISTORY_DAYS)
       );
     }
 
+    setProviderDataCache(getNetworkDailyHistoryCacheKey(days), serializeNetworkDailyHistory(series));
     return series;
   } catch (error) {
     logDataError("Unable to load network daily history", error, { days });
@@ -2451,6 +2542,7 @@ export const getServiceDailyHistory = cache(async (serviceId: string, days = PRO
       );
     }
 
+    setProviderDataCache(getServiceDailyHistoryCacheKey(serviceId, days), serializeNetworkDailyHistory(series));
     return series;
   } catch (error) {
     logDataError("Unable to load service daily history", error, { serviceId, days });
@@ -2466,33 +2558,72 @@ export function getDashboardDataSafe(window: TimeWindow): { data: DashboardData 
   const snapshot = getCachedDashboardSnapshot(window);
 
   if (snapshot) {
-    const cached = dashboardCache.get(window);
-    if (!cached || cached.expiresAt <= Date.now()) {
-      logDataInfo("Dashboard snapshot is stale; refreshing in background", {
-        window,
-        latestHeight: snapshot.latestHeight,
-        dataSource: snapshot.dataSource,
-        expiresAt: cached?.expiresAt ? new Date(cached.expiresAt).toISOString() : null
-      });
-      void refreshDashboard(window).catch((error) => {
-        logDataError("Background dashboard refresh failed for stale snapshot", error, { window });
-      });
-    }
-
     return { data: snapshot, status: "ready" };
   }
 
-  logDataWarning("Dashboard snapshot missing; starting cold refresh", { window });
-  void refreshDashboard(window).catch((error) => {
-    logDataError("Cold dashboard refresh failed", error, { window });
-  });
+  logDataWarning("Dashboard snapshot missing; waiting for ingestion worker", { window });
   return { data: null, status: "warming" };
 }
 
 export function primeDashboardRefresh(window: TimeWindow): void {
-  void refreshDashboard(window).catch((error) => {
-    logDataError("Primed dashboard refresh failed", error, { window });
-  });
+  logDataInfo("Skipping request-path dashboard refresh; ingestion worker owns data updates", { window });
 }
 
 export const warmDashboardData = cache(async (window: TimeWindow): Promise<DashboardData> => loadDashboard(window));
+
+export async function runDataIngestion(): Promise<void> {
+  const startedAt = Date.now();
+  const jobId = startJobRun("data_ingestion", { windows: ["30d", "7d", "24h"] });
+
+  try {
+    logDataInfo("Starting data ingestion worker run");
+
+    const windows: TimeWindow[] = ["30d", "7d", "24h"];
+    const dashboards: Partial<Record<TimeWindow, DashboardData>> = {};
+    for (const window of windows) {
+      dashboards[window] = await refreshDashboard(window);
+    }
+
+    await getNetworkDailyHistory();
+
+    const providers = Array.from(
+      new Map(
+        windows
+          .flatMap((window) => dashboards[window]?.providers ?? [])
+          .map((provider) => [provider.providerKey, provider])
+      ).values()
+    );
+    const services = Array.from(
+      new Map(
+        windows
+          .flatMap((window) => dashboards[window]?.services ?? [])
+          .map((service) => [service.serviceId, service])
+      ).values()
+    );
+
+    for (const provider of providers) {
+      await getProviderDailyHistory(provider.providerDomain);
+      for (const window of windows) {
+        await getProviderSupplierBreakdown(provider.providerKey, window);
+      }
+    }
+
+    for (const service of services) {
+      await getServiceDailyHistory(service.serviceId);
+    }
+
+    const metadata = {
+      windows,
+      providerCount: providers.length,
+      serviceCount: services.length,
+      durationMs: Date.now() - startedAt
+    };
+    finishJobRun(jobId, "success", startedAt, metadata);
+    logDataInfo("Data ingestion worker run completed", metadata);
+  } catch (error) {
+    const message = getErrorMessage(error);
+    finishJobRun(jobId, "failed", startedAt, { durationMs: Date.now() - startedAt }, message);
+    logDataError("Data ingestion worker run failed", error);
+    throw error;
+  }
+}

@@ -1,6 +1,6 @@
 import ProviderDetailView from "@/app/providers/provider-detail-view";
 import { serializeDashboardData } from "@/lib/dashboard-serialization";
-import { getDashboardDataSafe, getDashboardSnapshot, getProviderDailyHistory, getProviderSupplierBreakdown, primeDashboardRefresh } from "@/lib/pocket";
+import { getDashboardDataSafe, getDashboardSnapshot, getProviderDailyHistoryLocal, getProviderSupplierBreakdownLocal, primeDashboardRefresh } from "@/lib/pocket";
 import type { SerializedDashboardData, SerializedProviderDailyHistoryPoint, SerializedSupplierMember, TimeWindow } from "@/lib/types";
 
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
@@ -52,12 +52,12 @@ export default async function ProviderPage({ params, searchParams }: PageProps) 
     .flatMap((data) => data?.providers ?? [])
     .find((provider) => provider.providerKey === providerKey)?.providerDomain ?? providerKey;
 
-  const history = (await getProviderDailyHistory(providerDomain)).map((point) => ({
+  const history = getProviderDailyHistoryLocal(providerDomain).map((point) => ({
     ...point,
     revenueUpokt: point.revenueUpokt.toString()
   })) satisfies SerializedProviderDailyHistoryPoint[];
 
-  const initialSupplierBreakdown = (await getProviderSupplierBreakdown(providerKey, initialWindow)).map((supplier) => ({
+  const initialSupplierBreakdown = getProviderSupplierBreakdownLocal(providerKey, initialWindow).map((supplier) => ({
     ...supplier,
     revenueUpokt: supplier.revenueUpokt?.toString(),
     stakeUpokt: supplier.stakeUpokt?.toString()

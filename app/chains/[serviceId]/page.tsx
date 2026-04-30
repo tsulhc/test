@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import TimeseriesPanel from "@/app/timeseries-panel";
 import { formatCompactNumber, formatDecimal, formatInteger, formatPercent, formatUsd, formatUpokt } from "@/lib/format";
-import { getDashboardDataSafe, getServiceDailyHistory } from "@/lib/pocket";
+import { getDashboardDataSafe, getServiceDailyHistoryLocal } from "@/lib/pocket";
 import type { ProviderChainStats, ProviderStats } from "@/lib/types";
 
 type PageProps = {
@@ -71,7 +71,7 @@ export default async function ChainDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const history = await getServiceDailyHistory(decodedServiceId);
+  const history = getServiceDailyHistoryLocal(decodedServiceId);
   const historyValues = history.map((point) => toPoktNumber(point.revenueUpokt));
   const historyAverage = movingAverage(historyValues, 7);
   const historyPoints = history.map((point, index) => ({

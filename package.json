@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3100",
+    "ingest": "tsx scripts/ingest.ts",
+    "worker": "tsx scripts/ingest.ts --watch",
     "lint": "next lint",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
@@ -20,6 +22,7 @@
     "@types/node": "22.15.3",
     "@types/react": "19.0.10",
     "@types/react-dom": "19.0.4",
+    "tsx": "^4.21.0",
     "typescript": "5.8.3"
   }
 }

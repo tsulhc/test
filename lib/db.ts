@@ -38,6 +38,17 @@ db.exec(`
     payload_json TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS job_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    duration_ms INTEGER,
+    error TEXT,
+    metadata_json TEXT
+  );
 `);
 
 const selectSettlementBlocksStatement = db.prepare(
@@ -78,6 +89,25 @@ const upsertDashboardCacheStatement = db.prepare(
     ON CONFLICT(window) DO UPDATE SET
       payload_json = excluded.payload_json,
       updated_at = excluded.updated_at
+  `
+);
+
+const insertJobRunStatement = db.prepare(
+  `
+    INSERT INTO job_runs (job_name, status, started_at, metadata_json)
+    VALUES (@job_name, @status, @started_at, @metadata_json)
+  `
+);
+
+const updateJobRunStatement = db.prepare(
+  `
+    UPDATE job_runs
+    SET status = @status,
+        finished_at = @finished_at,
+        duration_ms = @duration_ms,
+        error = @error,
+        metadata_json = @metadata_json
+    WHERE id = @id
   `
 );
 
@@ -138,5 +168,26 @@ export function setDashboardCache(window: string, payloadJson: string): void {
     window,
     payload_json: payloadJson,
     updated_at: new Date().toISOString()
+  });
+}
+
+export function startJobRun(jobName: string, metadata?: Record<string, unknown>): number {
+  const result = insertJobRunStatement.run({
+    job_name: jobName,
+    status: "running",
+    started_at: new Date().toISOString(),
+    metadata_json: metadata ? JSON.stringify(metadata) : null
+  });
+  return Number(result.lastInsertRowid);
+}
+
+export function finishJobRun(id: number, status: "success" | "failed", startedAt: number, metadata?: Record<string, unknown>, error?: string): void {
+  updateJobRunStatement.run({
+    id,
+    status,
+    finished_at: new Date().toISOString(),
+    duration_ms: Date.now() - startedAt,
+    error: error ?? null,
+    metadata_json: metadata ? JSON.stringify(metadata) : null
   });
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import TimeseriesPanel from "@/app/timeseries-panel";
 import { formatCompactNumber, formatCompactUpokt, formatCompactUsd, formatDecimal, formatInteger, formatPercent, formatUsd, formatUpokt } from "@/lib/format";
-import { getDashboardDataSafe, getNetworkDailyHistory } from "@/lib/pocket";
+import { getDashboardDataSafe, getNetworkDailyHistoryLocal } from "@/lib/pocket";
 
 export const metadata = {
   title: "Rewards | Pocket Provider Dashboard",
@@ -32,7 +32,7 @@ function movingAverage(values: number[], windowSize: number): number[] {
 export default async function RewardsPage() {
   const result = getDashboardDataSafe("30d");
   const data = result.data;
-  const history = await getNetworkDailyHistory();
+  const history = getNetworkDailyHistoryLocal();
 
   if (!data) {
     return (

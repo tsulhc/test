@@ -26,7 +26,9 @@ export default async function Home({ searchParams }: PageProps) {
   const initialData = initialResult.data ? serializeDashboardData(initialResult.data) : null;
   const otherEntries = WINDOWS.filter((window) => window !== initialWindow).map((window) => {
     const snapshot = getDashboardSnapshot(window);
-    primeDashboardRefresh(window);
+    if (snapshot) {
+      primeDashboardRefresh(window);
+    }
     return [window, snapshot ? serializeDashboardData(snapshot) : null] as const;
   });
   const dataByWindow = Object.fromEntries([

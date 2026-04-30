@@ -242,8 +242,12 @@ const RPC_URLS = Array.from(
 const SERVICES_PATH = "/pokt-network/poktroll/service/service";
 const SUPPLIERS_PATH = "/pokt-network/poktroll/supplier/supplier";
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const SUPPLIER_DIRECTORY_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_RPC_TIMEOUT_MS = 5_000;
 const BLOCK_RESULTS_TIMEOUT_MS = 8_000;
+const POKTSCAN_TIMEOUT_MS = 15_000;
+const POKTSCAN_MAX_ATTEMPTS = 4;
+const POKTSCAN_MAX_CONCURRENCY = 2;
 const SETTLEMENT_EVENT_TYPE = "pocket.tokenomics.EventClaimSettled";
 const SETTLEMENT_MODE_QUERY = "pocket.tokenomics.EventClaimSettled.mode='EndBlock'";
 const SUPPLIER_REWARD_REASONS = new Set([
@@ -263,10 +267,14 @@ const BLOCK_SEARCH_TIMEOUT_MS = 2_500;
 const dashboardCache = new Map<TimeWindow, { expiresAt: number; data: DashboardData }>();
 const dashboardRefreshes = new Map<TimeWindow, Promise<DashboardData>>();
 let priceCache: { value: number; expiresAt: number } | null = null;
+let activePoktscanRequests = 0;
+const poktscanQueue: Array<() => void> = [];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return error.stack ?? error.message;
+    const cause = "cause" in error ? (error as Error & { cause?: unknown }).cause : undefined;
+    const causeMessage = cause ? `\nCause: ${getErrorMessage(cause)}` : "";
+    return `${error.stack ?? error.message}${causeMessage}`;
   }
 
   try {
@@ -293,6 +301,52 @@ function logDataError(message: string, error: unknown, context?: Record<string, 
 
 function getGraphqlOperationName(query: string): string {
   return query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] ?? "anonymous";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquirePoktscanSlot(): Promise<{ release: () => void; queuedMs: number }> {
+  const queuedAt = Date.now();
+
+  if (activePoktscanRequests < POKTSCAN_MAX_CONCURRENCY) {
+    activePoktscanRequests += 1;
+    return {
+      release: releasePoktscanSlot,
+      queuedMs: Date.now() - queuedAt
+    };
+  }
+
+  await new Promise<void>((resolve) => poktscanQueue.push(resolve));
+  activePoktscanRequests += 1;
+
+  return {
+    release: releasePoktscanSlot,
+    queuedMs: Date.now() - queuedAt
+  };
+}
+
+function releasePoktscanSlot(): void {
+  activePoktscanRequests = Math.max(0, activePoktscanRequests - 1);
+  poktscanQueue.shift()?.();
+}
+
+function getPoktscanBackoffMs(attempt: number): number {
+  const jitter = Math.floor(Math.random() * 250);
+  return Math.min(5_000, 500 * 2 ** (attempt - 1)) + jitter;
+}
+
+function isRetryablePoktscanStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function markRetryableError(error: Error, retryable: boolean): Error & { retryable?: boolean } {
+  return Object.assign(error, { retryable });
+}
+
+function isMarkedNonRetryable(error: unknown): boolean {
+  return error instanceof Error && "retryable" in error && (error as Error & { retryable?: boolean }).retryable === false;
 }
 
 type SerializedDashboardCache = Omit<DashboardData, "totalRevenueUpokt" | "providers" | "services"> & {
@@ -322,6 +376,15 @@ type ProviderDailyHistoryCacheEntry = Omit<ProviderDailyHistoryPoint, "revenueUp
 type SupplierMemberCacheEntry = Omit<SupplierMember, "revenueUpokt" | "stakeUpokt"> & {
   revenueUpokt?: string;
   stakeUpokt?: string;
+};
+
+type SupplierDirectoryCacheEntry = Omit<SupplierDirectoryEntry, "stakeUpokt"> & {
+  stakeUpokt?: string;
+};
+
+type SupplierDirectoryCachePayload = {
+  updatedAt: string;
+  data: Record<string, SupplierDirectoryCacheEntry>;
 };
 
 type ProviderDataCache<T> = {
@@ -399,84 +462,122 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 async function fetchPoktscan<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const operationName = getGraphqlOperationName(query);
-  const startedAt = Date.now();
+  let lastError: unknown;
 
-  let response: Response;
-  try {
-    response = await fetch(DEFAULT_POKTSCAN_URL, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json"
-      },
-      cache: "no-store",
-      body: JSON.stringify({ query, variables })
-    });
-  } catch (error) {
-    logDataError("Poktscan network request failed", error, {
-      operationName,
-      url: DEFAULT_POKTSCAN_URL,
-      variables
-    });
-    throw error;
-  }
+  for (let attempt = 1; attempt <= POKTSCAN_MAX_ATTEMPTS; attempt += 1) {
+    const startedAt = Date.now();
+    const { release, queuedMs } = await acquirePoktscanSlot();
 
-  if (!response.ok) {
-    let body = "";
     try {
-      body = (await response.text()).slice(0, 1000);
+      const response = await fetch(DEFAULT_POKTSCAN_URL, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json"
+        },
+        cache: "no-store",
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(POKTSCAN_TIMEOUT_MS)
+      });
+
+      if (!response.ok) {
+        let body = "";
+        try {
+          body = (await response.text()).slice(0, 1000);
+        } catch (error) {
+          body = `Unable to read response body: ${getErrorMessage(error)}`;
+        }
+
+        const retryable = isRetryablePoktscanStatus(response.status);
+        const error = markRetryableError(new Error(`Request failed for ${DEFAULT_POKTSCAN_URL}: ${response.status} ${response.statusText}`), retryable);
+        lastError = error;
+        logDataError("Poktscan HTTP request failed", error, {
+          operationName,
+          url: DEFAULT_POKTSCAN_URL,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - startedAt,
+          queuedMs,
+          attempt,
+          maxAttempts: POKTSCAN_MAX_ATTEMPTS,
+          variables,
+          body
+        });
+
+        if (!retryable || attempt === POKTSCAN_MAX_ATTEMPTS) {
+          throw error;
+        }
+
+        await sleep(getPoktscanBackoffMs(attempt));
+        continue;
+      }
+
+      let payload: { errors?: Array<{ message: string }> } & T;
+      try {
+        payload = (await response.json()) as { errors?: Array<{ message: string }> } & T;
+      } catch (error) {
+        logDataError("Poktscan JSON parsing failed", error, {
+          operationName,
+          url: DEFAULT_POKTSCAN_URL,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          queuedMs,
+          attempt,
+          maxAttempts: POKTSCAN_MAX_ATTEMPTS,
+          variables
+        });
+        throw error;
+      }
+
+      if (payload.errors?.length) {
+        const error = markRetryableError(new Error(payload.errors.map((entry) => entry.message).join("; ")), false);
+        logDataError("Poktscan GraphQL errors returned", error, {
+          operationName,
+          url: DEFAULT_POKTSCAN_URL,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          queuedMs,
+          attempt,
+          maxAttempts: POKTSCAN_MAX_ATTEMPTS,
+          variables,
+          errors: payload.errors
+        });
+        throw error;
+      }
+
+      logDataInfo("Poktscan request completed", {
+        operationName,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        queuedMs,
+        attempt,
+        variables
+      });
+
+      return payload;
     } catch (error) {
-      body = `Unable to read response body: ${getErrorMessage(error)}`;
+      lastError = error;
+      logDataError("Poktscan network request failed", error, {
+        operationName,
+        url: DEFAULT_POKTSCAN_URL,
+        durationMs: Date.now() - startedAt,
+        queuedMs,
+        attempt,
+        maxAttempts: POKTSCAN_MAX_ATTEMPTS,
+        variables
+      });
+
+      if (isMarkedNonRetryable(error) || attempt === POKTSCAN_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      await sleep(getPoktscanBackoffMs(attempt));
+    } finally {
+      release();
     }
-
-    const error = new Error(`Request failed for ${DEFAULT_POKTSCAN_URL}: ${response.status} ${response.statusText}`);
-    logDataError("Poktscan HTTP request failed", error, {
-      operationName,
-      url: DEFAULT_POKTSCAN_URL,
-      status: response.status,
-      statusText: response.statusText,
-      durationMs: Date.now() - startedAt,
-      variables,
-      body
-    });
-    throw error;
   }
 
-  let payload: { errors?: Array<{ message: string }> } & T;
-  try {
-    payload = (await response.json()) as { errors?: Array<{ message: string }> } & T;
-  } catch (error) {
-    logDataError("Poktscan JSON parsing failed", error, {
-      operationName,
-      url: DEFAULT_POKTSCAN_URL,
-      status: response.status,
-      durationMs: Date.now() - startedAt,
-      variables
-    });
-    throw error;
-  }
-
-  if (payload.errors?.length) {
-    const error = new Error(payload.errors.map((entry) => entry.message).join("; "));
-    logDataError("Poktscan GraphQL errors returned", error, {
-      operationName,
-      url: DEFAULT_POKTSCAN_URL,
-      status: response.status,
-      durationMs: Date.now() - startedAt,
-      variables,
-      errors: payload.errors
-    });
-    throw error;
-  }
-
-  logDataInfo("Poktscan request completed", {
-    operationName,
-    status: response.status,
-    durationMs: Date.now() - startedAt,
-    variables
-  });
-
-  return payload;
+  throw lastError instanceof Error ? lastError : new Error("Poktscan request failed");
 }
 
 const getPoktscanClaimAggregates = cache(async (window: TimeWindow): Promise<PoktscanClaimAggregate[]> => {
@@ -995,6 +1096,56 @@ function deserializeSupplierMembers(suppliers: SupplierMemberCacheEntry[]): Supp
   }));
 }
 
+function serializeSupplierDirectory(directory: SupplierDirectory): Record<string, SupplierDirectoryCacheEntry> {
+  return Object.fromEntries(
+    Object.entries(directory).map(([operatorAddress, supplier]) => [
+      operatorAddress,
+      {
+        ...supplier,
+        stakeUpokt: supplier.stakeUpokt?.toString()
+      }
+    ])
+  );
+}
+
+function deserializeSupplierDirectory(directory: Record<string, SupplierDirectoryCacheEntry>): SupplierDirectory {
+  return Object.fromEntries(
+    Object.entries(directory).map(([operatorAddress, supplier]) => [
+      operatorAddress,
+      {
+        ...supplier,
+        stakeUpokt: supplier.stakeUpokt ? BigInt(supplier.stakeUpokt) : undefined
+      }
+    ])
+  );
+}
+
+function getCachedPoktscanSupplierDirectory(): SupplierDirectory | null {
+  const cached = getMeta("poktscan_supplier_directory");
+  if (!cached) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(cached) as SupplierDirectoryCachePayload;
+    if (Date.now() - new Date(parsed.updatedAt).getTime() > SUPPLIER_DIRECTORY_CACHE_TTL_MS) {
+      return null;
+    }
+
+    return deserializeSupplierDirectory(parsed.data);
+  } catch (error) {
+    logDataError("Unable to read cached Poktscan supplier directory", error);
+    return null;
+  }
+}
+
+function setCachedPoktscanSupplierDirectory(directory: SupplierDirectory): void {
+  setMeta("poktscan_supplier_directory", JSON.stringify({
+    updatedAt: new Date().toISOString(),
+    data: serializeSupplierDirectory(directory)
+  } satisfies SupplierDirectoryCachePayload));
+}
+
 function hasServiceSupplierCounts(data: DashboardData | null | undefined): data is DashboardData {
   if (!data) return false;
   return data.services.every((service) => typeof service.supplierCount === "number");
@@ -1165,6 +1316,12 @@ const getServiceSupplierCounts = cache(async (): Promise<ServiceSupplierCounts> 
 });
 
 const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> => {
+  const cached = getCachedPoktscanSupplierDirectory();
+  if (cached) {
+    logDataInfo("Poktscan supplier directory served from persistent cache", { supplierCount: Object.keys(cached).length });
+    return cached;
+  }
+
   const directory: SupplierDirectory = {};
   const restDirectory = await getSupplierDirectory();
   let offset = 0;
@@ -1249,6 +1406,7 @@ const getPoktscanSupplierDirectory = cache(async (): Promise<SupplierDirectory> 
   }
 
   logDataInfo("Poktscan supplier directory load completed", { supplierCount: Object.keys(directory).length });
+  setCachedPoktscanSupplierDirectory(directory);
   return directory;
 });
 

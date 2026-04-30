@@ -276,14 +276,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
       return;
     }
 
-    for (const entry of missingWindows) {
-      loadWindow(entry, false);
-    }
+    loadWindow(missingWindows[0], false);
 
     const retryId = globalThis.setInterval(() => {
-      for (const entry of missingWindows) {
-        loadWindow(entry, false);
-      }
+      loadWindow(missingWindows[0], false);
     }, WARMING_RETRY_MS);
 
     return () => globalThis.clearInterval(retryId);

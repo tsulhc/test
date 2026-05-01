@@ -1,5 +1,5 @@
 import ChainsExplorerView from "@/app/chains/chains-explorer-view";
-import { serializeDashboardData } from "@/lib/dashboard-serialization";
+import { serializePublicDashboardData } from "@/lib/dashboard-serialization";
 import { getDashboardDataSafe } from "@/lib/pocket";
 
 export const metadata = {
@@ -12,7 +12,7 @@ export const revalidate = 0;
 
 export default function ChainsPage() {
   const result = getDashboardDataSafe("30d");
-  const data = result.data ? serializeDashboardData(result.data) : null;
+  const data = result.data ? serializePublicDashboardData(result.data) : null;
 
   return <ChainsExplorerView data={data} />;
 }

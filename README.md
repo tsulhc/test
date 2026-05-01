@@ -1,6 +1,11 @@
 # Pocket Provider Dashboard
 
-Public-facing Pocket Network dashboard focused on provider onboarding.
+Public-facing Pocket Network dashboard focused on service demand, reward trends, and provider onboarding economics without naming or ranking commercial providers.
+
+## Branch Scope
+
+- `main`: PNF-safe public dashboard. It does not expose named provider leaderboards, provider detail pages, staker rankings, supplier playbooks, or per-provider service mix in the UI or public dashboard API payloads.
+- `provider`: operator/provider intelligence edition preserved from the pre-PNF-feedback dashboard. It includes named provider rankings, provider detail reports, staker yield rankings, and infrastructure deep dives for private operator analysis.
 
 ## Overview
 
@@ -8,9 +13,9 @@ This project is a Next.js app that turns live Pocket Network data into a simple 
 
 The current public demo focuses on:
 
-- provider-side revenue across `24h`, `7d`, and `30d` windows
+- aggregate provider-side revenue across `24h`, `7d`, and `30d` windows
 - relay demand across active services
-- top provider domains and high-demand services
+- high-demand services, supplier competition, and service opportunity scoring
 - a growth calculator for early provider planning
 
 ## Current Product Scope
@@ -24,7 +29,7 @@ Today, the project is intentionally lightweight:
 - a small local SQLite cache for settlement blocks, metadata, and dashboard snapshots
 - `Poktscan` as the primary data source when available
 - direct Pocket RPC fallback when `Poktscan` is unavailable
-- provider grouping at the domain level, derived from supplier endpoints and service configuration
+- provider grouping at the domain level inside the ingestion model, with named provider data removed from public `main` surfaces
 
 That makes it a good public demo, but not yet a full historical analytics product backed by a dedicated indexer.
 
@@ -52,7 +57,9 @@ In this mode, provider-side revenue is computed from the supplier-side share ins
 
 Some details are important when reading the numbers shown in the UI.
 
-- The main unit shown in the dashboard is a provider domain, not a single supplier operator.
+- The public dashboard shows provider-domain metrics only as aggregate counts, averages, medians, and concentration measures.
+- Named provider rankings and provider-level operational detail are intentionally out of scope for `main`.
+- The preserved `provider` branch keeps the provider/operator edition for private analysis.
 - USD values are derived from the live CoinGecko price for `pocket-network`.
 - Time windows are based on settlement block time, or the equivalent aggregated time window from `Poktscan`.
 - The growth calculator is deliberately simple and designed to provide plausible onboarding guidance, not exact protocol-level forecasting.

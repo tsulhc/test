@@ -2,27 +2,38 @@
 
 ## Stato Attuale della Codebase
 
-La codebase attuale ha gia una demo pubblica funzionante, ma non implementa ancora alla lettera tutta l'architettura RC1 descritta in questo documento.
+La codebase attuale ha gia una demo pubblica funzionante. Dopo il feedback PNF, il branch `main` e esplicitamente limitato a una superficie pubblica neutrale: non deve nominare, classificare o linkare provider commerciali.
+
+Il branch `provider` conserva la precedente edizione operator/provider intelligence, inclusi ranking e dettagli per-provider, per analisi privata.
 
 In particolare oggi:
 
-- l'applicazione e una singola app Next.js, non un sistema separato `worker + db analitico + api`
+- l'applicazione e una app Next.js servita separatamente da un worker Node.js di ingestion
 - la dashboard tenta prima di leggere aggregati da `Poktscan`
 - se `Poktscan` non e disponibile, usa un fallback RPC che legge `EventClaimSettled` dagli `end_block_events`
 - la persistenza locale e un SQLite leggero usato per cache di settlement block, metadata e snapshot della dashboard
-- la UI pubblica raggruppa i supplier soprattutto a livello di provider domain, derivato da domini/endpoints del supplier, non solo per `supplier_operator_address`
+- il modello interno raggruppa i supplier anche a livello di provider domain, ma `main` rimuove nomi, chiavi, dettaglio supplier e mix per-provider dal payload pubblico
 
 Quindi questo documento va letto come direzione architetturale per l'evoluzione verso una RC1 piu rigorosa, non come descrizione perfettamente aderente di ogni dettaglio implementato oggi.
 
 ## Scopo
 
-Questo documento definisce come costruire la prima versione utile di una dashboard Pocket Network per nuovi provider, con focus economico.
+Questo documento definisce come costruire la prima versione utile di una dashboard Pocket Network per nuovi provider, con focus economico e neutralita PNF nella superficie pubblica.
 
 Metriche RC1:
 
-- relay eseguiti per chain per provider
-- revenue per provider
+- relay e revenue per service
+- metriche aggregate non nominali sui provider/domain
 - filtri temporali `24h`, `7d`, `30d`
+
+Fuori scope per `main`:
+
+- named provider leaderboards
+- provider detail pages
+- staker provider rankings
+- per-provider service mix, supplier counts, supplier addresses, or operational playbooks
+
+Queste viste possono vivere nel branch `provider`, non nella dashboard pubblica principale.
 
 Il documento e pensato per un agente o sviluppatore senza contesto precedente. Per questo include riferimenti diretti ai file di `poktroll` da cui derivano le decisioni architetturali.
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import RevenueCalculator from "@/app/revenue-calculator";
@@ -18,7 +17,6 @@ import { buildAllocatedServiceOpportunity, DEFAULT_NEW_PROVIDER_SUPPLIERS } from
 import type {
   SerializedDashboardData,
   SerializedNetworkDailyHistoryPoint,
-  SerializedProviderStats,
   SerializedServiceStats,
   TimeWindow
 } from "@/lib/types";
@@ -73,35 +71,6 @@ function movingAverage(values: number[], windowSize: number): number[] {
   });
 }
 
-function HeroBars({ providers, window }: { providers: SerializedProviderStats[]; window: TimeWindow }) {
-  const topProviders = providers.slice(0, 6);
-  const maxRevenue = topProviders[0]?.revenueUpokt ?? "0";
-
-  return (
-    <div className="hero-bars">
-      {topProviders.map((provider, index) => {
-        const width = maxRevenue === "0" ? 0 : Math.max(8, Math.round((Number(provider.revenueUpokt) / Number(maxRevenue)) * 100));
-
-        return (
-          <Link key={provider.providerKey} href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="hero-bar-row hero-bar-link">
-            <div className="hero-bar-meta">
-              <span className="eyebrow" style={{ marginBottom: 0 }}>#{index + 1}</span>
-              <strong style={{ fontSize: '0.95rem' }}>{provider.providerLabel}</strong>
-              <span className="provider-link-cue">Analysis →</span>
-            </div>
-            <div className="hero-bar-track">
-              <div className="hero-bar-fill" style={{ width: `${width}%` }} />
-            </div>
-            <div className="provider-link-end">
-              <strong className="accent-number">{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 function DonutMeter({ value, label, detail, icon }: { value: number; label: string; detail: string; icon?: React.ReactNode }) {
   const degrees = Math.max(0, Math.min(360, Math.round((value / 100) * 360)));
 
@@ -120,46 +89,6 @@ function DonutMeter({ value, label, detail, icon }: { value: number; label: stri
         </div>
       </div>
       <p className="muted" style={{ fontSize: '0.85rem', marginTop: '12px' }}>{detail}</p>
-    </div>
-  );
-}
-
-function ProviderRevenueChart({
-  providers,
-  totalRevenue,
-  poktPriceUsd
-}: {
-  providers: SerializedProviderStats[];
-  totalRevenue: string;
-  poktPriceUsd: number;
-}) {
-  const topProviders = providers.slice(0, 8);
-  const maxRevenue = topProviders[0]?.revenueUpokt ?? "0";
-
-  return (
-    <div className="chart-list">
-      {topProviders.map((provider, index) => {
-        const width = maxRevenue === "0" ? 0 : Math.max(6, Math.round((Number(provider.revenueUpokt) / Number(maxRevenue)) * 100));
-        const share = getShare(provider.revenueUpokt, totalRevenue);
-
-        return (
-          <div key={provider.providerKey} className="chart-row">
-            <div className="chart-row-head">
-              <div>
-                <strong style={{ fontSize: '1.05rem' }}>#{index + 1} {provider.providerLabel}</strong>
-                <div className="muted mono">{provider.providerDomain}</div>
-              </div>
-              <div className="right">
-                <strong className="accent-number" style={{ fontSize: '1.1rem' }}>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-                <div className="muted" style={{ fontSize: '0.85rem' }}>{formatUsd(toUsdFromUpokt(provider.revenueUpokt, poktPriceUsd), 0)} · {formatPercent(share, 1)} share</div>
-              </div>
-            </div>
-            <div className="chart-track" style={{ marginTop: '12px' }}>
-              <div className="chart-fill" style={{ width: `${width}%` }} />
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -339,12 +268,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
     );
   }
 
-  const topProvider = data.providers[0];
   const topService = data.services[0];
   const averageRevenuePerProvider = data.activeProviders === 0 ? 0 : toPoktNumber(data.totalRevenueUpokt) / data.activeProviders;
   const medianRevenuePerProvider = median(data.providers.map((provider) => toPoktNumber(provider.revenueUpokt)));
   const revenuePerThousandRelays = data.totalRelays === 0 ? 0 : (toPoktNumber(data.totalRevenueUpokt) / data.totalRelays) * 1000;
-  const topProviderShare = topProvider ? getShare(topProvider.revenueUpokt, data.totalRevenueUpokt) : 0;
   const top5ProviderShare = getShare(
     data.providers.slice(0, 5).reduce((sum, provider) => sum + BigInt(provider.revenueUpokt), 0n).toString(),
     data.totalRevenueUpokt
@@ -424,12 +351,17 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             <aside className="hero-side panel-inset" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
               <div className="section-title-row compact-gap">
                 <div>
-                  <h2 className="section-title">Market Leaders</h2>
-                  <p className="muted" style={{ fontSize: '0.8rem' }}>Top performers by revenue</p>
+                  <h2 className="section-title">Network Snapshot</h2>
+                  <p className="muted" style={{ fontSize: '0.8rem' }}>Aggregate provider-side market indicators</p>
                 </div>
                 <span className="pill">{formatRelativeRange(window)}</span>
               </div>
-              <HeroBars providers={data.providers} window={window} />
+              <div className="insight-list">
+                <div className="insight-row"><span className="muted">Active Domains</span><strong>{formatInteger(data.activeProviders)}</strong></div>
+                <div className="insight-row"><span className="muted">Active Services</span><strong>{formatInteger(data.activeChains)}</strong></div>
+                <div className="insight-row"><span className="muted">Median Domain Reward</span><strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong></div>
+                <div className="insight-row"><span className="muted">Top 5 Aggregate Share</span><strong>{formatPercent(top5ProviderShare, 1)}</strong></div>
+              </div>
             </aside>
           </div>
         </div>
@@ -465,15 +397,15 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
             <div className="donut-grid">
               <DonutMeter 
-                value={topProviderShare} 
-                label="Top Leader" 
-                detail="Market share of the #1 provider domain." 
+                value={top5ProviderShare} 
+                label="Top 5 Aggregate" 
+                detail="Combined revenue share of the five largest provider groups, without naming them." 
                 icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
               />
               <DonutMeter 
-                value={top5ProviderShare} 
-                label="Top 5 Entity" 
-                detail="Revenue held by the top 5 provider groups." 
+                value={100 - top5ProviderShare} 
+                label="Long-Tail Share" 
+                detail="Revenue share held outside the five largest provider groups." 
                 icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
               />
               <DonutMeter 
@@ -532,20 +464,6 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         }))}
       />
 
-      <section>
-        <article className="panel section section-visual">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Revenue Distribution</h2>
-              <p className="section-subtitle">Visualizing monetization across the network's top provider domains.</p>
-            </div>
-            <span className="pill">Leaderboard</span>
-          </div>
-
-          <ProviderRevenueChart providers={data.providers} totalRevenue={data.totalRevenueUpokt} poktPriceUsd={data.poktPriceUsd} />
-        </article>
-      </section>
-
       <section className="panel section section-opportunity">
         <div className="section-title-row">
           <div>
@@ -561,44 +479,6 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
       </section>
 
       <section className="section-grid">
-        <article className="panel section">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Top Provider Domains</h2>
-              <p className="section-subtitle">Leaders by service coverage and revenue.</p>
-            </div>
-            <span className="pill">Leaderboard</span>
-          </div>
-
-          <div className="provider-list">
-            {data.providers.slice(0, 8).map((provider, index) => {
-              const share = getShare(provider.revenueUpokt, data.totalRevenueUpokt);
-              return (
-                <div key={provider.providerKey} className="provider-row provider-row-rich">
-                  <div className="provider-row-top">
-                    <div>
-                      <strong style={{ fontSize: '1.05rem' }}>#{index + 1} {provider.providerLabel}</strong>
-                      <div className="muted mono">{provider.providerDomain}</div>
-                      <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-inline-link">
-                        Performance Analysis →
-                      </Link>
-                    </div>
-                    <div className="right">
-                      <strong className="accent-number" style={{ fontSize: '1.1rem' }}>{formatUpokt(toBigInt(provider.revenueUpokt), 1)}</strong>
-                      <div className="muted" style={{ fontSize: '0.85rem' }}>{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
-                    </div>
-                  </div>
-                  <div className="provider-row-metrics">
-                    <span>{formatPercent(share, 1)} market share</span>
-                    <span>{formatInteger(provider.chainCount)} services</span>
-                    <span>{formatInteger(provider.supplierCount)} suppliers</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </article>
-
         <article className="panel section">
           <div className="section-title-row">
             <div>
@@ -632,75 +512,6 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             })}
           </div>
         </article>
-      </section>
-
-      <section className="panel section section-detail">
-        <div className="section-title-row">
-          <div>
-            <h2 className="section-title">Infrastructure Deep Dive</h2>
-            <p className="section-subtitle">Granular operational detail for top network participants.</p>
-          </div>
-          <span className="pill">Operational View</span>
-        </div>
-
-        <div className="provider-cards">
-          {data.providers.slice(0, 12).map((provider) => (
-            <article key={provider.providerKey} className="panel provider-card provider-card-rich">
-              <div className="provider-card-top">
-                <div>
-                  <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=${window}`} className="provider-card-link">
-                    <strong style={{ fontSize: '1.2rem' }}>{provider.providerLabel}</strong>
-                    <div className="muted mono">{provider.providerDomain}</div>
-                    <div className="provider-link-cue">View full report →</div>
-                  </Link>
-                </div>
-                <div className="right">
-                  <div className="provider-link-end provider-link-end-right">
-                    <strong className="accent-number" style={{ fontSize: '1.3rem' }}>{formatUpokt(toBigInt(provider.revenueUpokt))}</strong>
-                  </div>
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>{formatUsd(toUsdFromUpokt(provider.revenueUpokt, data.poktPriceUsd), 0)} · {formatInteger(provider.relays)} relays</div>
-                </div>
-              </div>
-
-              <div className="provider-stats">
-                <span>{formatInteger(provider.chainCount)} services</span>
-                <span>{formatInteger(provider.supplierCount)} suppliers</span>
-                <span>{formatDecimal(toPoktNumber(provider.revenueUpokt) / Math.max(provider.chainCount, 1), 1)} POKT/chain</span>
-              </div>
-
-              <div style={{ marginTop: '24px', overflowX: 'auto' }}>
-                <table className="mini-table">
-                  <thead>
-                    <tr>
-                      <th>Chain</th>
-                      <th className="right">Relay</th>
-                      <th className="right">Revenue</th>
-                      <th className="right">Mix</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {provider.chains.slice(0, 5).map((chain) => (
-                      <tr key={`${provider.providerKey}-${chain.serviceId}`}>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{chain.serviceName}</div>
-                          <div className="muted mono" style={{ fontSize: '0.75rem' }}>{chain.serviceId}</div>
-                        </td>
-                        <td className="right">{formatInteger(chain.relays)}</td>
-                        <td className="right">{formatUpokt(toBigInt(chain.revenueUpokt), 1)}</td>
-                        <td className="right">{formatPercent(getShare(chain.revenueUpokt, provider.revenueUpokt), 0)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <p className="footer-note">
-          This public dashboard prioritizes fast provider-side market visibility. It uses short-lived caching, domain-level
-          supplier grouping, and resilient fallbacks. Data is continuously refined as Pocket Network moves toward RC1.
-        </p>
       </section>
 
       <section className="panel section hero-meta">

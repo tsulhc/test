@@ -1,6 +1,12 @@
 # Pocket Network Resources
 Common Resources in use on the Pocket Network Protocol
 
+## Repository Scope Note
+
+The `main` branch is the PNF-safe public dashboard scope. It should use these resources to produce service-level and aggregate market intelligence only, without named provider rankings or per-provider operational detail.
+
+The `provider` branch preserves the operator intelligence edition for private provider analysis.
+
 ## Network Snapshots
 
 - Main snapshots dashboard: https://sync.easy2stake.com/d/ce1jmvhesy1hce/state-sync-server?var-chain_id=pocket

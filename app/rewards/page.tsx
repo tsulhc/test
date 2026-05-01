@@ -46,7 +46,6 @@ export default async function RewardsPage() {
     );
   }
 
-  const topProvider = data.providers[0];
   const topService = data.services[0];
   const averageReward = data.activeProviders === 0 ? 0 : toPoktNumber(data.totalRevenueUpokt) / data.activeProviders;
   const top5ProviderRewards = data.providers.slice(0, 5).reduce((sum, provider) => sum + provider.revenueUpokt, 0n);
@@ -105,9 +104,9 @@ export default async function RewardsPage() {
           <span className="kpi-foot">Across {formatInteger(data.activeProviders)} active domains</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Top Leader Share</span>
-          <span className="kpi-value">{topProvider ? formatPercent(getShare(topProvider.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
-          <span className="kpi-foot">{topProvider?.providerLabel ?? "No provider activity"}</span>
+          <span className="kpi-label">Active Reward Domains</span>
+          <span className="kpi-value">{formatInteger(data.activeProviders)}</span>
+          <span className="kpi-foot">Domains with finalized rewards in the 30d window</span>
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Top 5 Concentration</span>
@@ -189,47 +188,6 @@ export default async function RewardsPage() {
       </section>
 
       <section className="section-grid rewards-grid">
-        <article className="panel section">
-          <div className="section-title-row">
-            <div>
-              <h2 className="section-title">Top Earning Providers</h2>
-              <p className="section-subtitle">Domains capturing largest finalized reward pools.</p>
-            </div>
-            <Link href="/providers" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
-              Registry →
-            </Link>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="mini-table">
-              <thead>
-                <tr>
-                  <th>Provider Entity</th>
-                  <th className="right">Rewards (30d)</th>
-                  <th className="right">Market Mix</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.providers.slice(0, 10).map((provider) => (
-                  <tr key={provider.providerKey}>
-                    <td>
-                      <Link href={`/providers/${encodeURIComponent(provider.providerKey)}?window=30d`} className="explorer-primary-link">
-                        {provider.providerLabel}
-                      </Link>
-                      <div className="muted mono" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{provider.providerDomain}</div>
-                    </td>
-                    <td className="right">
-                      <strong className="accent-number">{formatUpokt(provider.revenueUpokt, 1)}</strong>
-                    </td>
-                    <td className="right" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                      {formatPercent(getShare(provider.revenueUpokt, data.totalRevenueUpokt), 1)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
         <article className="panel section">
           <div className="section-title-row">
             <div>

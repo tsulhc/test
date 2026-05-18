@@ -3,8 +3,8 @@ import { serializePublicDashboardData } from "@/lib/dashboard-serialization";
 import { getDashboardDataSafe } from "@/lib/pocket";
 
 export const metadata = {
-  title: "Chains | Pocket Provider Dashboard",
-  description: "Rank Pocket services by revenue, relays, provider density, and expansion opportunity."
+  title: "Services | Pocket Network Analytics",
+  description: "Explore Pocket services by rewards, relays, domain density, supplier count, and public demand signals."
 };
 
 export const dynamic = "force-dynamic";

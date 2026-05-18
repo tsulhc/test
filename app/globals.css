@@ -1691,6 +1691,84 @@ code {
   line-height: 1.6;
 }
 
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(1440px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 0 0 40px;
+  color: var(--muted);
+}
+
+.site-footer strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.site-footer p {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+
+.site-footer nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.distribution-grid,
+.network-coverage-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.distribution-row,
+.network-coverage-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+}
+
+.distribution-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.distribution-row-head strong,
+.network-coverage-card strong {
+  font-family: var(--font-accent);
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.network-coverage-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.network-coverage-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.network-coverage-card.density-low,
+.network-coverage-card.density-medium,
+.network-coverage-card.density-high {
+  border-radius: var(--radius-md);
+}
+
 .calculator-section {
   margin-bottom: 32px;
 }
@@ -1964,6 +2042,10 @@ code {
   .provider-history-summary {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .network-coverage-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -2041,6 +2123,13 @@ code {
   .page {
     padding: 24px 16px 80px;
     width: 100%;
+  }
+
+  .site-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 0 16px 32px;
   }
 
   .section, .panel, .provider-head {

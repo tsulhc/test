@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageProps) {
 
   return {
     title: `${decodedServiceId} | Pocket Chain Detail`,
-    description: `Pocket service revenue, relay demand, and supplier competition for ${decodedServiceId}.`
+      description: `Pocket service rewards, relay demand, and aggregate participation metrics for ${decodedServiceId}.`
   };
 }
 
@@ -95,7 +95,7 @@ export default async function ChainDetailPage({ params }: PageProps) {
           <h1>{service.serviceName}</h1>
           <p className="section-subtitle mono" style={{ fontSize: '0.9rem' }}>{service.serviceId}</p>
           <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px', marginTop: '12px' }}>
-            Analyze specialized demand, unit yields, and supplier competition for this specific service.
+            Analyze service-level demand, unit rewards, and aggregate participation for this specific service.
           </p>
           <div className="window-tabs" style={{ marginTop: '24px' }}>
             <Link href="/chains" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
@@ -126,7 +126,7 @@ export default async function ChainDetailPage({ params }: PageProps) {
 
       <section className="kpi-grid kpi-grid-strong rewards-kpi-grid">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Yield / active domain</span>
+          <span className="kpi-label">Avg reward / active domain</span>
           <span className="kpi-value">{formatDecimal(revenuePerProvider, 1)} POKT</span>
           <span className="kpi-foot">{formatUsd(revenuePerProvider * data.poktPriceUsd, 0)} per domain (30d)</span>
         </article>
@@ -149,7 +149,7 @@ export default async function ChainDetailPage({ params }: PageProps) {
 
       <TimeseriesPanel
         title="Service Reward Trend"
-        subtitle="Daily provider-side rewards for this service with a 7-day moving average."
+        subtitle="Daily settled rewards for this service with a 7-day moving average."
         eyebrow="Service Trend"
         points={historyPoints}
         valueLabel="rewards"
@@ -160,8 +160,8 @@ export default async function ChainDetailPage({ params }: PageProps) {
       <section className="panel section">
         <div className="section-title-row">
           <div>
-            <h2 className="section-title">Service Competition Profile</h2>
-            <p className="section-subtitle">Aggregate participation and yield signals without naming individual operators.</p>
+            <h2 className="section-title">Service Participation Profile</h2>
+            <p className="section-subtitle">Aggregate participation and reward signals without naming individual operators.</p>
           </div>
           <span className="pill">Competition</span>
         </div>

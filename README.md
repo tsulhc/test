@@ -100,7 +100,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The UI reads local SQLite snapshots only. Run `npm run ingest` before opening the app on a fresh database.
+The UI reads local SQLite snapshots only. In development, if no local snapshot exists, `npm run dev` serves deterministic PNF-safe dummy analytics data so UI/UX work can continue without running the indexer. Set `POCKET_DISABLE_DEV_DUMMY_DATA=true` to see the real warming state instead.
 
 ## Production Runtime
 

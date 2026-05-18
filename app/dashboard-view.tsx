@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
-import RevenueCalculator from "@/app/revenue-calculator";
 import TimeseriesPanel from "@/app/timeseries-panel";
 import {
   formatCompactNumber,
@@ -13,7 +12,6 @@ import {
   formatUsd,
   formatUpokt
 } from "@/lib/format";
-import { buildAllocatedServiceOpportunity, DEFAULT_NEW_PROVIDER_SUPPLIERS } from "@/lib/opportunities";
 import type {
   SerializedDashboardData,
   SerializedNetworkDailyHistoryPoint,
@@ -71,6 +69,35 @@ function movingAverage(values: number[], windowSize: number): number[] {
   });
 }
 
+function getRevenuePerThousandRelays(service: SerializedServiceStats): number {
+  return service.relays === 0 ? 0 : (toPoktNumber(service.revenueUpokt) / service.relays) * 1000;
+}
+
+function getSupplierDensityLabel(service: SerializedServiceStats): string {
+  const suppliers = service.supplierCount ?? 0;
+  if (suppliers <= 25) return "low density";
+  if (suppliers <= 75) return "balanced";
+  return "dense";
+}
+
+function buildDomainBuckets(providers: SerializedDashboardData["providers"]): Array<{ label: string; count: number; revenue: bigint }> {
+  const buckets = [
+    { label: "0-10 POKT", min: 0, max: 10, count: 0, revenue: 0n },
+    { label: "10-100 POKT", min: 10, max: 100, count: 0, revenue: 0n },
+    { label: "100-1k POKT", min: 100, max: 1_000, count: 0, revenue: 0n },
+    { label: "1k+ POKT", min: 1_000, max: Number.POSITIVE_INFINITY, count: 0, revenue: 0n }
+  ];
+
+  for (const provider of providers) {
+    const pokt = toPoktNumber(provider.revenueUpokt);
+    const bucket = buckets.find((entry) => pokt >= entry.min && pokt < entry.max) ?? buckets[buckets.length - 1];
+    bucket.count += 1;
+    bucket.revenue += BigInt(provider.revenueUpokt);
+  }
+
+  return buckets.map(({ label, count, revenue }) => ({ label, count, revenue }));
+}
+
 function DonutMeter({ value, label, detail, icon }: { value: number; label: string; detail: string; icon?: React.ReactNode }) {
   const degrees = Math.max(0, Math.min(360, Math.round((value / 100) * 360)));
 
@@ -93,21 +120,11 @@ function DonutMeter({ value, label, detail, icon }: { value: number; label: stri
   );
 }
 
-function OpportunityMap({ services, totalRevenue }: { services: SerializedServiceStats[]; totalRevenue: string }) {
+function ServiceDemandMap({ services, totalRevenue }: { services: SerializedServiceStats[]; totalRevenue: string }) {
   const topServices = services
-    .map((service) => buildAllocatedServiceOpportunity(service, DEFAULT_NEW_PROVIDER_SUPPLIERS, DEFAULT_NEW_PROVIDER_SUPPLIERS))
-    .filter((service) => service.projectedRevenueUpokt > 0n && service.projectedRevenuePerSupplierUpokt > 0n)
-    .sort((a, b) => {
-      const scoreGap = b.opportunityScore - a.opportunityScore;
-      if (scoreGap !== 0) return scoreGap;
-      if (b.projectedRevenuePerSupplierUpokt === a.projectedRevenuePerSupplierUpokt) return 0;
-      return b.projectedRevenuePerSupplierUpokt > a.projectedRevenuePerSupplierUpokt ? 1 : -1;
-    })
-    .slice(0, 8);
-  const maxOpportunity = Math.max(
-    ...topServices.map((service) => toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability),
-    1
-  );
+    .filter((service) => BigInt(service.revenueUpokt) > 0n || service.relays > 0)
+    .slice(0, 10);
+  const maxRevenue = Math.max(...topServices.map((service) => toPoktNumber(service.revenueUpokt)), 1);
 
   return (
     <div className="opportunity-grid">
@@ -115,16 +132,17 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
         <div className="opportunity-card">
           <div className="opportunity-head">
             <div>
-              <strong style={{ fontSize: '1.1rem' }}>No revenue-positive opportunities yet</strong>
-              <div className="muted">Services with easy slots but zero projected POKT are excluded from this view.</div>
+              <strong style={{ fontSize: '1.1rem' }}>No service demand yet</strong>
+              <div className="muted">Service-level demand will appear after settlement facts are indexed.</div>
             </div>
           </div>
         </div>
       )}
       {topServices.map((service) => {
-        const width = Math.max(10, Math.round(((toPoktNumber(service.projectedRevenuePerSupplierUpokt.toString()) * service.selectionProbability) / maxOpportunity) * 100));
-        const share = getShare(service.projectedRevenueUpokt.toString(), totalRevenue);
-        const density = service.providerCount <= 2 ? "low" : service.providerCount <= 5 ? "medium" : "high";
+        const width = Math.max(8, Math.round((toPoktNumber(service.revenueUpokt) / maxRevenue) * 100));
+        const share = getShare(service.revenueUpokt, totalRevenue);
+        const density = (service.supplierCount ?? 0) <= 25 ? "low" : (service.supplierCount ?? 0) <= 75 ? "medium" : "high";
+        const revenuePerThousandRelays = getRevenuePerThousandRelays(service);
 
         return (
           <div key={service.serviceId} className="opportunity-card">
@@ -134,24 +152,53 @@ function OpportunityMap({ services, totalRevenue }: { services: SerializedServic
                 <div className="muted mono">{service.serviceId}</div>
               </div>
               <span className={`density density-${density}`}>
-                {service.providerCount} {service.providerCount === 1 ? "provider" : "providers"}
+                {getSupplierDensityLabel(service)}
               </span>
             </div>
             <div className="opportunity-metric-row" style={{ marginTop: '16px' }}>
-              <span className="muted">Projected 15-supplier reward</span>
-              <strong className="accent-number">{formatUpokt(service.projectedRevenueUpokt, 1)}</strong>
+              <span className="muted">Settled rewards</span>
+              <strong className="accent-number">{formatUpokt(BigInt(service.revenueUpokt), 1)}</strong>
             </div>
             <div className="opportunity-metric-row">
-              <span className="muted">Projected per supplier</span>
-              <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatUpokt(service.projectedRevenuePerSupplierUpokt, 1)}</strong>
+              <span className="muted">Reward / 1k relays</span>
+              <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong>
             </div>
             <div className="opportunity-track" style={{ margin: '16px 0' }}>
               <div className="opportunity-fill" style={{ width: `${width}%` }} />
             </div>
             <div className="opportunity-foot">
-              <span>{formatInteger(service.supplierCount)} suppliers live</span>
-              <span>{formatPercent(service.selectionProbability, 0)} slot probability</span>
+              <span>{formatInteger(service.supplierCount ?? 0)} suppliers live</span>
+              <span>{formatInteger(service.providerCount)} active domains</span>
               <span>{formatPercent(share, 1)} market share</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DomainDistribution({ data }: { data: SerializedDashboardData }) {
+  const buckets = buildDomainBuckets(data.providers);
+  const maxCount = Math.max(...buckets.map((bucket) => bucket.count), 1);
+
+  return (
+    <div className="distribution-grid">
+      {buckets.map((bucket) => {
+        const width = Math.max(8, Math.round((bucket.count / maxCount) * 100));
+        const share = getShare(bucket.revenue.toString(), data.totalRevenueUpokt);
+        return (
+          <div key={bucket.label} className="distribution-row">
+            <div className="distribution-row-head">
+              <strong>{bucket.label}</strong>
+              <span className="muted">{formatInteger(bucket.count)} domains</span>
+            </div>
+            <div className="opportunity-track">
+              <div className="opportunity-fill" style={{ width: `${width}%` }} />
+            </div>
+            <div className="opportunity-foot">
+              <span>{formatUpokt(bucket.revenue, 1)}</span>
+              <span>{formatPercent(share, 1)} of rewards</span>
             </div>
           </div>
         );
@@ -222,10 +269,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             <div className="hero-main">
               <div className="hero-copy hero-copy-strong">
                 <span className="eyebrow">Pocket Network</span>
-                <h1>Fuel the Unstoppable. Become a Pocket Provider.</h1>
+                <h1>Pocket Network Public Analytics.</h1>
                 <p>
-                  Real-time market intelligence to guide your infrastructure journey. Analyze revenue trends, relay
-                  demand, and competitive landscapes to identify where your node capacity can make the most impact.
+                  Public service demand, relay, and reward analytics built from indexed Pocket settlement events.
+                  No named provider rankings, provider pages, or operator-level playbooks are exposed.
                 </p>
 
                 <div className="window-tabs" aria-label="time windows">
@@ -311,11 +358,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           
           <div className="hero-main">
             <div className="hero-copy hero-copy-strong">
-              <span className="eyebrow">Pocket Network Intelligence</span>
-              <h1>Scale the Decentralized Web.</h1>
+              <span className="eyebrow">Pocket Network Analytics</span>
+              <h1>Public market data for Pocket.</h1>
               <p style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
-                Real-time market intelligence for the next generation of infrastructure providers. 
-                Analyze demand, optimize your node deployment, and capture your share of the network revenue.
+                Explore finalized relay demand, service rewards, market concentration, and data freshness from a neutral public analytics surface.
               </p>
 
               <div className="window-tabs" aria-label="time windows">
@@ -338,12 +384,12 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
                 <div className="hero-highlight">
                   <span className="hero-highlight-label">Market Revenue Pool</span>
                   <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
-                  <p>Total provider earnings final settled in {formatRelativeRange(window)}.</p>
+                  <p>Total public reward pool final settled in {formatRelativeRange(window)}.</p>
                 </div>
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Growth Benchmark</span>
+                  <span className="hero-highlight-label">Average Domain Benchmark</span>
                   <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
-                  <p>Average revenue target for active provider domains.</p>
+                  <p>Aggregate benchmark across anonymized active domains.</p>
                 </div>
               </div>
             </div>
@@ -352,7 +398,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
               <div className="section-title-row compact-gap">
                 <div>
                   <h2 className="section-title">Network Snapshot</h2>
-                  <p className="muted" style={{ fontSize: '0.8rem' }}>Aggregate provider-side market indicators</p>
+                  <p className="muted" style={{ fontSize: '0.8rem' }}>Public aggregate market indicators</p>
                 </div>
                 <span className="pill">{formatRelativeRange(window)}</span>
               </div>
@@ -368,20 +414,20 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
         <div className="hero-support-grid">
           <article className="panel narrative-card">
-            <span className="eyebrow eyebrow-ghost">Strategic Insight</span>
-            <h2>Entry Strategy: Benchmarks for Success.</h2>
+            <span className="eyebrow eyebrow-ghost">Market Readout</span>
+            <h2>Public signals replacing provider rankings.</h2>
             <ul className="narrative-points">
               <li>
-                <strong>Target {formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> per 1k relays for peak efficiency.
+                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> settled per 1k relays across the selected window.
               </li>
               <li>
-                <strong>~{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> projected revenue per 1,000 relays served.
+                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> equivalent reward value per 1,000 finalized relays.
               </li>
               <li>
-                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> median benchmark for active domains.
+                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> median anonymous domain reward benchmark.
               </li>
               <li>
-                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the highest demand chain.
+                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the largest service by settled rewards.
               </li>
             </ul>
           </article>
@@ -389,8 +435,8 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           <article className="panel section section-visual">
             <div className="section-title-row">
               <div>
-                <h2 className="section-title">Network Dynamics</h2>
-                <p className="section-subtitle">Revenue distribution across the provider ecosystem.</p>
+                <h2 className="section-title">Market Shape</h2>
+                <p className="section-subtitle">Anonymous concentration and service mix signals.</p>
               </div>
               <span className="pill">Concentration</span>
             </div>
@@ -399,13 +445,13 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
               <DonutMeter 
                 value={top5ProviderShare} 
                 label="Top 5 Aggregate" 
-                detail="Combined revenue share of the five largest provider groups, without naming them." 
+                detail="Combined reward share of the five largest anonymous domain cohorts." 
                 icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
               />
               <DonutMeter 
                 value={100 - top5ProviderShare} 
                 label="Long-Tail Share" 
-                detail="Revenue share held outside the five largest provider groups." 
+                detail="Reward share held outside the five largest anonymous domain cohorts." 
                 icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
               />
               <DonutMeter 
@@ -431,9 +477,9 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           <span className="kpi-foot">{formatInteger(data.totalRelays)} total relays</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Avg. Revenue / Provider</span>
+          <span className="kpi-label">Avg. Reward / Domain</span>
           <span className="kpi-value" style={{ color: 'var(--green)' }}>{formatDecimal(averageRevenuePerProvider, 1)} POKT</span>
-          <span className="kpi-foot">{formatUsd(averageRevenuePerProviderUsd, 0)} per active domain</span>
+          <span className="kpi-foot">{formatUsd(averageRevenuePerProviderUsd, 0)} anonymous domain benchmark</span>
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Unit Revenue (1k Relays)</span>
@@ -444,7 +490,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
       <TimeseriesPanel
         title="30-Day Market Revenue Trend"
-        subtitle="Daily provider-side revenue with a 7-day moving average to make network momentum easier to read."
+        subtitle="Daily settled rewards with a 7-day moving average to make network momentum easier to read."
         eyebrow="Market Trend"
         points={revenueHistoryPoints}
         valueLabel="revenue"
@@ -452,30 +498,57 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         emptyText="Network daily history is not available yet. The snapshot metrics above remain available."
       />
 
-      <RevenueCalculator
-        poktPriceUsd={data.poktPriceUsd}
-        services={data.services.map((service) => ({
-          serviceId: service.serviceId,
-          serviceName: service.serviceName,
-          relays: service.relays,
-          revenueUpokt: service.revenueUpokt,
-          providerCount: service.providerCount,
-          supplierCount: service.supplierCount
-        }))}
+      <TimeseriesPanel
+        title="30-Day Relay Demand Trend"
+        subtitle="Daily finalized relay volume, using the same indexed settlement facts as the rewards view."
+        eyebrow="Demand Trend"
+        points={networkHistory.map((point) => ({ label: point.day, value: point.relays }))}
+        valueLabel="relays"
+        formatValue={(value) => formatCompactNumber(value)}
+        emptyText="Network relay history is not available yet. The snapshot metrics above remain available."
       />
 
       <section className="panel section section-opportunity">
         <div className="section-title-row">
           <div>
-              <h2 className="section-title">High-Growth Opportunities</h2>
+              <h2 className="section-title">Service Demand Map</h2>
               <p className="section-subtitle">
-                Best entry opportunities for a new provider using the Foundation's 15-supplier assumption and real supplier competition.
+                Service-level reward, relay, and participation signals. This view does not expose provider identities or provider service mixes.
               </p>
             </div>
-            <span className="pill">Onboarding Focus</span>
+            <span className="pill">Public Services</span>
         </div>
 
-        <OpportunityMap services={data.services} totalRevenue={data.totalRevenueUpokt} />
+        <ServiceDemandMap services={data.services} totalRevenue={data.totalRevenueUpokt} />
+      </section>
+
+      <section className="section-grid">
+        <article className="panel section">
+          <div className="section-title-row">
+            <div>
+              <h2 className="section-title">Anonymous Domain Distribution</h2>
+              <p className="section-subtitle">Reward buckets for active domains, aggregated without naming or ranking them.</p>
+            </div>
+            <span className="pill">Privacy Safe</span>
+          </div>
+          <DomainDistribution data={data} />
+        </article>
+
+        <article className="panel section">
+          <div className="section-title-row">
+            <div>
+              <h2 className="section-title">Public Methodology</h2>
+              <p className="section-subtitle">How the public analytics surface stays neutral.</p>
+            </div>
+            <span className="pill">PNF Safe</span>
+          </div>
+          <div className="insight-list">
+            <div className="insight-row"><span className="muted">Source event</span><strong>EventClaimSettled</strong></div>
+            <div className="insight-row"><span className="muted">Visible detail</span><strong>Network and service aggregates</strong></div>
+            <div className="insight-row"><span className="muted">Hidden detail</span><strong>No named provider surfaces</strong></div>
+            <div className="insight-row"><span className="muted">Request path</span><strong>SQLite snapshots only</strong></div>
+          </div>
+        </article>
       </section>
 
       <section className="section-grid">
@@ -504,8 +577,8 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
                      </div>
                    </div>
                    <div className="provider-row-metrics">
-                     <span>{formatInteger(service.providerCount)} providers active</span>
-                     <span style={{ color: 'var(--green)' }}>{formatDecimal(revenuePerProvider, 1)} POKT / provider</span>
+                     <span>{formatInteger(service.providerCount)} domains active</span>
+                     <span style={{ color: 'var(--green)' }}>{formatDecimal(revenuePerProvider, 1)} POKT / domain</span>
                    </div>
                  </div>
               );
@@ -527,7 +600,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           <div className="insight-row">
             <span className="muted">Primary Data Source</span>
             <strong style={{ color: data.dataSource === "poktscan" ? 'var(--green)' : 'var(--orange)' }}>
-              {data.dataSource === "poktscan" ? "Poktscan API (Verified)" : "RPC direct fallback"}
+              {data.dataSource === "poktscan" ? "Legacy Poktscan snapshot" : "Indexed RPC snapshot"}
             </strong>
           </div>
           <div className="insight-row">

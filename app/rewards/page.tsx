@@ -5,8 +5,8 @@ import { formatCompactNumber, formatCompactUpokt, formatCompactUsd, formatDecima
 import { getDashboardDataSafe, getNetworkDailyHistoryLocal } from "@/lib/pocket";
 
 export const metadata = {
-  title: "Rewards | Pocket Provider Dashboard",
-  description: "Provider-side Pocket rewards, methodology, and reward concentration across providers and services."
+  title: "Rewards | Pocket Network Analytics",
+  description: "Pocket reward flow, methodology, and anonymous concentration across domains and services."
 };
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ export default async function RewardsPage() {
         <section className="panel section explorer-empty">
           <span className="eyebrow">Rewards</span>
           <h1 className="section-title">Rewards view is warming up.</h1>
-          <p className="section-subtitle">The 30d reward snapshot is still being prepared. Refresh shortly to inspect provider rewards.</p>
+          <p className="section-subtitle">The 30d reward snapshot is still being prepared. Refresh shortly to inspect public reward flow.</p>
         </section>
       </main>
     );
@@ -74,10 +74,9 @@ export default async function RewardsPage() {
         
         <div>
           <span className="eyebrow">Settlement Analysis</span>
-          <h1>Provider Rewards.</h1>
+          <h1>Network Rewards.</h1>
           <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
-            Inspect finalized provider-side rewards across the ecosystem. Analyze concentration, 
-            unit yields, and settlement methodology.
+            Inspect finalized reward flow across the ecosystem. Analyze anonymous concentration, unit rewards, and settlement methodology.
           </p>
         </div>
         
@@ -99,7 +98,7 @@ export default async function RewardsPage() {
 
       <section className="kpi-grid kpi-grid-strong rewards-kpi-grid">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Average Provider Reward</span>
+          <span className="kpi-label">Average Domain Reward</span>
           <span className="kpi-value">{formatDecimal(averageReward, 1)} POKT</span>
           <span className="kpi-foot">Across {formatInteger(data.activeProviders)} active domains</span>
         </article>
@@ -121,8 +120,8 @@ export default async function RewardsPage() {
       </section>
 
       <TimeseriesPanel
-        title="Daily Provider Reward Flow"
-        subtitle="Provider-side rewards by settlement day, with a 7-day moving average for trend direction."
+        title="Daily Network Reward Flow"
+        subtitle="Settled rewards by day, with a 7-day moving average for trend direction."
         eyebrow="Reward Trend"
         points={rewardHistoryPoints}
         valueLabel="rewards"
@@ -135,7 +134,7 @@ export default async function RewardsPage() {
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Reward Methodology</h2>
-              <p className="section-subtitle">Defining provider-side finalized revenue.</p>
+              <p className="section-subtitle">Defining finalized public reward flow.</p>
             </div>
             <span className="pill">Settlement</span>
           </div>
@@ -152,8 +151,8 @@ export default async function RewardsPage() {
             </div>
             <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
               <span className="hero-highlight-label">Market Rollup</span>
-              <strong style={{ fontSize: '1.1rem' }}>Provider Domain Grouping</strong>
-              <p style={{ fontSize: '0.85rem' }}>Individual supplier operators are aggregated into domain-level groups to provide a clear benchmark for professional market participants.</p>
+              <strong style={{ fontSize: '1.1rem' }}>Anonymous Domain Aggregates</strong>
+              <p style={{ fontSize: '0.85rem' }}>Individual supplier operators are aggregated into anonymous domain-level cohorts for neutral public benchmarking.</p>
             </div>
           </div>
         </article>
@@ -192,7 +191,7 @@ export default async function RewardsPage() {
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Top Earning Chains</h2>
-              <p className="section-subtitle">Services driving highest provider-side monetization.</p>
+              <p className="section-subtitle">Services driving the highest settled rewards.</p>
             </div>
             <Link href="/chains" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
               Chains →

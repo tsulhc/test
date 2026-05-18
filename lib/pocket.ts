@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { finishJobRun, getCachedSettlementBlocks, getDashboardCache, getMeta, saveSettlementBlock, setDashboardCache, setMeta, startJobRun } from "@/lib/db";
+import { getDevelopmentDashboardData, getDevelopmentNetworkDailyHistory, getDevelopmentServiceDailyHistory, isDevelopmentDummyDataEnabled } from "@/lib/dev-fixtures";
 import { PROVIDER_DOMAIN_LABEL_OVERRIDES, SUPPLIER_PROVIDER_OVERRIDES } from "@/lib/provider-overrides";
 import type {
   DashboardData,
@@ -2226,7 +2227,12 @@ export async function getDashboardData(window: TimeWindow): Promise<DashboardDat
 }
 
 export function getNetworkDailyHistoryLocal(days = PROVIDER_HISTORY_DAYS): NetworkDailyHistoryPoint[] {
-  return getNetworkDailyHistorySnapshot(days);
+  const snapshot = getNetworkDailyHistorySnapshot(days);
+  if (snapshot.length > 0 || !isDevelopmentDummyDataEnabled()) {
+    return snapshot;
+  }
+
+  return getDevelopmentNetworkDailyHistory(days);
 }
 
 export function getProviderDailyHistoryLocal(providerKey: string, days = PROVIDER_HISTORY_DAYS): ProviderDailyHistoryPoint[] {
@@ -2238,7 +2244,12 @@ export function getProviderSupplierBreakdownLocal(providerKey: string, window: T
 }
 
 export function getServiceDailyHistoryLocal(serviceId: string, days = PROVIDER_HISTORY_DAYS): ServiceDailyHistoryPoint[] {
-  return getServiceDailyHistorySnapshot(serviceId, days);
+  const snapshot = getServiceDailyHistorySnapshot(serviceId, days);
+  if (snapshot.length > 0 || !isDevelopmentDummyDataEnabled()) {
+    return snapshot;
+  }
+
+  return getDevelopmentServiceDailyHistory(serviceId, days);
 }
 
 export const getProviderDailyHistory = cache(async (providerKey: string, days = PROVIDER_HISTORY_DAYS): Promise<ProviderDailyHistoryPoint[]> => {
@@ -2552,7 +2563,7 @@ export const getServiceDailyHistory = cache(async (serviceId: string, days = PRO
 });
 
 export function getDashboardSnapshot(window: TimeWindow): DashboardData | null {
-  return getCachedDashboardSnapshot(window);
+  return getCachedDashboardSnapshot(window) ?? (isDevelopmentDummyDataEnabled() ? getDevelopmentDashboardData(window) : null);
 }
 
 export function getDashboardDataSafe(window: TimeWindow): { data: DashboardData | null; status: "ready" | "warming" } {
@@ -2560,6 +2571,10 @@ export function getDashboardDataSafe(window: TimeWindow): { data: DashboardData 
 
   if (snapshot) {
     return { data: snapshot, status: "ready" };
+  }
+
+  if (isDevelopmentDummyDataEnabled()) {
+    return { data: getDevelopmentDashboardData(window), status: "ready" };
   }
 
   logDataWarning("Dashboard snapshot missing; waiting for ingestion worker", { window });

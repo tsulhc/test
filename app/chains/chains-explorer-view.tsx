@@ -98,8 +98,7 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
           <span className="eyebrow">Service Explorer</span>
           <h1>Chain Intelligence.</h1>
           <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
-            Identify high-value targets across the decentralized web. Analyze relay demand, provider density, 
-            and monetization yield per active service.
+            Explore service-level relay demand, settled rewards, active domains, and supplier density without exposing provider identities.
           </p>
         </div>
         
@@ -143,11 +142,11 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
           <div className="explorer-select">
             <span className="hero-highlight-label">Sort Objective</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-              <option value="opportunity">Entry Opportunity</option>
+              <option value="opportunity">Demand Signal</option>
               <option value="revenue">Total Revenue</option>
               <option value="relays">Relay Volume</option>
-              <option value="providers">Provider Density</option>
-              <option value="revenuePerProvider">Yield / Provider</option>
+              <option value="providers">Domain Density</option>
+              <option value="revenuePerProvider">Avg Domain Reward</option>
               <option value="computeUnits">Compute Units</option>
               <option value="suppliers">Supplier Count</option>
             </select>
@@ -163,8 +162,8 @@ export default function ChainsExplorerView({ data }: ChainsExplorerViewProps) {
                 <th className="right">Final Relays</th>
                 <th className="right">Domains</th>
                 <th className="right">Suppliers</th>
-                <th className="right">Yield / Domain</th>
-                <th className="right">Opportunity</th>
+                <th className="right">Avg Domain Reward</th>
+                <th className="right">Demand Signal</th>
               </tr>
             </thead>
             <tbody>

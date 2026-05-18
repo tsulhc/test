@@ -586,7 +586,7 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
 }
 
 function estimateBackfillStart(latestHeight: number, days: number): number {
-  const averageBlockSeconds = Number(process.env.POCKET_INDEXER_AVG_BLOCK_SECONDS ?? 5.2);
+  const averageBlockSeconds = Number(process.env.POCKET_INDEXER_AVG_BLOCK_SECONDS ?? 60);
   return Math.max(1, latestHeight - Math.ceil((days * 24 * 60 * 60) / averageBlockSeconds));
 }
 

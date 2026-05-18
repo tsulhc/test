@@ -152,7 +152,7 @@ Indexer environment variables:
 - `POCKET_INDEXER_START_HEIGHT` optional first height when no checkpoint exists
 - `POCKET_INDEXER_RETENTION_DAYS` defaults to `45`
 - `POCKET_INDEXER_CACHE_INTERVAL_MS` defaults to `30000`
-- `POCKET_INDEXER_AVG_BLOCK_SECONDS` defaults to `5.2` for backfill height estimation
+- `POCKET_INDEXER_AVG_BLOCK_SECONDS` defaults to `60` for Pocket backfill height estimation
 - `POCKET_INDEXER_BACKFILL_CONCURRENCY` defaults to `8`
 - `POCKET_INDEXER_BACKFILL_BATCH_SIZE` defaults to `500`
 - `POCKET_INDEXER_HASH_SALT` salt for privacy-preserving supplier/operator hashes

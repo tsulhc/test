@@ -156,6 +156,7 @@ Il processo `npm run indexer`:
 - usa backfill concorrente a batch, con checkpoint scritto in ordine di altezza
 - ritenta le chiamate RPC fallite su tutto il pool, con backoff configurabile
 - espone nei log del backfill successi, fallimenti, timeout e latenza media per nodo RPC
+- in live mode evita catchup enormi da checkpoint obsoleti e riparte dal tip quando il gap supera la soglia configurata
 - rigenera le cache una sola volta a fine catchup/backfill, evitando rebuild costosi ogni pochi blocchi
 - scrive `settlement_facts` con retention predefinita di 45 giorni
 - rigenera cache UI per `24h`, `7d`, `30d` e history principali

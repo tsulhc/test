@@ -142,6 +142,7 @@ const RPC_RETRY_DELAY_MS = Number(process.env.POCKET_INDEXER_RPC_RETRY_DELAY_MS 
 const WS_IDLE_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_WS_IDLE_TIMEOUT_MS ?? 45_000);
 const BACKFILL_CONCURRENCY = Number(process.env.POCKET_INDEXER_BACKFILL_CONCURRENCY ?? 8);
 const BACKFILL_BATCH_SIZE = Number(process.env.POCKET_INDEXER_BACKFILL_BATCH_SIZE ?? 500);
+const LIVE_CATCHUP_MAX_BLOCKS = Number(process.env.POCKET_INDEXER_LIVE_CATCHUP_MAX_BLOCKS ?? 1_000);
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 const SETTLEMENT_EVENT_TYPE = "pocket.tokenomics.EventClaimSettled";
 const SUPPLIER_REWARD_REASONS = new Set([
@@ -649,10 +650,22 @@ async function runCatchup(options: IndexerOptions): Promise<void> {
   const latestHeight = options.toHeight ?? await getLatestHeight();
   const checkpoint = Number(getIndexerState("last_processed_height") ?? 0);
   const configuredStart = Number(process.env.POCKET_INDEXER_START_HEIGHT ?? 0);
-  const fromHeight = options.fromHeight
+  const isImplicitLiveCatchup = Boolean(options.live && !options.backfillDays && !options.fromHeight && !options.toHeight);
+  let fromHeight = options.fromHeight
     ?? (options.backfillDays ? estimateBackfillStart(latestHeight, options.backfillDays) : undefined)
     ?? (configuredStart > 0 ? configuredStart : undefined)
     ?? (checkpoint > 0 ? checkpoint + 1 : latestHeight);
+
+  if (isImplicitLiveCatchup && latestHeight - fromHeight + 1 > LIVE_CATCHUP_MAX_BLOCKS) {
+    logWarn("Skipping stale live checkpoint catchup", {
+      checkpoint,
+      requestedFromHeight: fromHeight,
+      latestHeight,
+      lagBlocks: latestHeight - checkpoint,
+      liveCatchupMaxBlocks: LIVE_CATCHUP_MAX_BLOCKS
+    });
+    fromHeight = latestHeight;
+  }
 
   setIndexerState("latest_seen_height", String(latestHeight));
   if (fromHeight <= latestHeight) {
@@ -719,7 +732,19 @@ async function runLive(): Promise<void> {
             const checkpoint = Number(getIndexerState("last_processed_height") ?? 0);
             setIndexerState("latest_seen_height", String(height));
             if (height > checkpoint) {
-              await processRange(checkpoint > 0 ? checkpoint + 1 : height, height);
+              const fromHeight = checkpoint > 0 ? checkpoint + 1 : height;
+              if (height - fromHeight + 1 > LIVE_CATCHUP_MAX_BLOCKS) {
+                logWarn("Skipping stale websocket checkpoint catchup", {
+                  checkpoint,
+                  requestedFromHeight: fromHeight,
+                  latestHeight: height,
+                  lagBlocks: height - checkpoint,
+                  liveCatchupMaxBlocks: LIVE_CATCHUP_MAX_BLOCKS
+                });
+                await processRange(height, height);
+              } else {
+                await processRange(fromHeight, height);
+              }
               await maybeRebuildCaches();
             }
           })().catch((error) => logError("Live block processing failed", error, { height }));

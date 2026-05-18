@@ -164,6 +164,7 @@ Indexer environment variables:
 - `POCKET_INDEXER_AVG_BLOCK_SECONDS` defaults to `60` for Pocket backfill height estimation
 - `POCKET_INDEXER_BACKFILL_CONCURRENCY` defaults to `8`
 - `POCKET_INDEXER_BACKFILL_BATCH_SIZE` defaults to `500`
+- `POCKET_INDEXER_LIVE_CATCHUP_MAX_BLOCKS` defaults to `1000`; live mode skips stale checkpoints with larger gaps instead of replaying history
 - `POCKET_INDEXER_HASH_SALT` salt for privacy-preserving supplier/operator hashes
 - `POCKET_UI_MEMORY_CACHE_MS` defaults to `30000`
 

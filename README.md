@@ -39,7 +39,9 @@ The dashboard uses an indexer-first data strategy.
 
 ### Primary path: Pocket RPC indexer
 
-The `pocket-indexer` process subscribes to CometBFT new blocks over WebSocket, catches up any missing heights over HTTP RPC, parses `EventClaimSettled`, and writes compact settlement facts to SQLite. The UI reads only materialized SQLite cache payloads.
+The `pocket-indexer` process subscribes to CometBFT new blocks over WebSocket, repairs missing heights from the last retention window over HTTP RPC, parses `EventClaimSettled`, and writes compact settlement facts to SQLite. The UI reads only materialized SQLite cache payloads.
+
+Live indexing and historical repair run in the same process. A fresh or partially indexed database can start in production immediately: WebSocket tailing follows new blocks while the repair loop fills gaps in the last `POCKET_INDEXER_RETENTION_DAYS` in the background.
 
 ### Legacy fallback: `Poktscan`
 
@@ -117,7 +119,7 @@ pm2 start npm --name pocket-dashboard -- run start
 pm2 start npm --name pocket-indexer -- run indexer
 ```
 
-The indexer owns all Pocket RPC/WebSocket requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Pocket RPC or Poktscan directly.
+The indexer owns all Pocket RPC/WebSocket requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Pocket RPC or Poktscan directly. `npm run indexer:backfill` remains available for manual/debug runs, but production should normally only run `npm run indexer`.
 
 Temporary legacy fallback:
 
@@ -155,15 +157,22 @@ POCKET_INDEXER_RPC_TIMEOUT_MS=30000 POCKET_INDEXER_BACKFILL_CONCURRENCY=2 POCKET
 Indexer environment variables:
 
 - `POCKET_RPC_URLS` comma-separated RPC pool used for WebSocket and HTTP fallback
+- `POCKET_BACKFILL_RPC_URLS` optional comma-separated RPC pool used first for repair/backfill reads
 - `POCKET_INDEXER_START_HEIGHT` optional first height when no checkpoint exists
 - `POCKET_INDEXER_RETENTION_DAYS` defaults to `45`
 - `POCKET_INDEXER_CACHE_INTERVAL_MS` defaults to `30000`
 - `POCKET_INDEXER_RPC_TIMEOUT_MS` defaults to `8000`
 - `POCKET_INDEXER_RPC_RETRIES` defaults to `3` attempts across the RPC pool
 - `POCKET_INDEXER_RPC_RETRY_DELAY_MS` defaults to `500`
+- `POCKET_INDEXER_BLOCK_RETRIES` defaults to `5` height-level retries
 - `POCKET_INDEXER_AVG_BLOCK_SECONDS` defaults to `60` for Pocket backfill height estimation
 - `POCKET_INDEXER_BACKFILL_CONCURRENCY` defaults to `8`
 - `POCKET_INDEXER_BACKFILL_BATCH_SIZE` defaults to `500`
+- `POCKET_INDEXER_REPAIR_INTERVAL_MS` defaults to `60000`
+- `POCKET_INDEXER_REPAIR_BATCH_SIZE` defaults to `250`
+- `POCKET_INDEXER_REPAIR_CONCURRENCY` defaults to `4`
+- `POCKET_INDEXER_REPAIR_FAILED_COOLDOWN_MS` defaults to `300000`
+- `POCKET_INDEXER_REPAIR_MAX_FAILED_RETRIES` defaults to `10`
 - `POCKET_INDEXER_LIVE_CATCHUP_MAX_BLOCKS` defaults to `1000`; live mode skips stale checkpoints with larger gaps instead of replaying history
 - `POCKET_INDEXER_HASH_SALT` salt for privacy-preserving supplier/operator hashes
 - `POCKET_UI_MEMORY_CACHE_MS` defaults to `30000`

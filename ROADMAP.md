@@ -121,7 +121,8 @@ Task:
 
 - leggere `end_block_events` per altezza
 - usare subscription `tm.event='NewBlock'` e recuperare `/block_results?height=N`
-- colmare gap dal checkpoint locale prima di entrare in live mode
+- mantenere live WebSocket e repair storico come responsabilità dello stesso processo indexer
+- trovare e riempire autonomamente buchi di height negli ultimi 45 giorni
 - eseguire backfill storico a batch concorrenti con checkpoint ordinato e cache rebuild finale
 - filtrare gli eventi di tipo `EventClaimSettled`
 - salvare campi raw principali: blocco, timestamp, session, service, supplier, reward breakdown

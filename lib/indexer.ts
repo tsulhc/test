@@ -7,9 +7,12 @@ import {
   getIndexedProviderAggregates,
   getIndexedServiceAggregates,
   getIndexedServiceDailyAggregates,
+  getIndexedHeightCoverage,
   getIndexerState,
   getLatestIndexedFact,
+  markIndexedHeightFailed,
   pruneIndexerData,
+  pruneIndexedHeightCoverage,
   saveIndexedBlock,
   saveIndexedServices,
   setDashboardCache,
@@ -132,6 +135,15 @@ const RPC_URLS = Array.from(
       .concat(DEFAULT_RPC_URLS)
   )
 );
+const BACKFILL_RPC_URLS = Array.from(
+  new Set(
+    (process.env.POCKET_BACKFILL_RPC_URLS ?? "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .concat(RPC_URLS)
+  )
+);
 const REST_URL = process.env.POCKET_REST_URL ?? "https://sauron-api.infra.pocket.network";
 const HASH_SALT = process.env.POCKET_INDEXER_HASH_SALT ?? "pocket-dashboard-public-main";
 const RETENTION_DAYS = Number(process.env.POCKET_INDEXER_RETENTION_DAYS ?? 45);
@@ -143,6 +155,12 @@ const WS_IDLE_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_WS_IDLE_TIMEOUT_MS 
 const BACKFILL_CONCURRENCY = Number(process.env.POCKET_INDEXER_BACKFILL_CONCURRENCY ?? 8);
 const BACKFILL_BATCH_SIZE = Number(process.env.POCKET_INDEXER_BACKFILL_BATCH_SIZE ?? 500);
 const LIVE_CATCHUP_MAX_BLOCKS = Number(process.env.POCKET_INDEXER_LIVE_CATCHUP_MAX_BLOCKS ?? 1_000);
+const BLOCK_RETRIES = Number(process.env.POCKET_INDEXER_BLOCK_RETRIES ?? 5);
+const REPAIR_INTERVAL_MS = Number(process.env.POCKET_INDEXER_REPAIR_INTERVAL_MS ?? 60_000);
+const REPAIR_BATCH_SIZE = Number(process.env.POCKET_INDEXER_REPAIR_BATCH_SIZE ?? 250);
+const REPAIR_CONCURRENCY = Number(process.env.POCKET_INDEXER_REPAIR_CONCURRENCY ?? 4);
+const REPAIR_FAILED_COOLDOWN_MS = Number(process.env.POCKET_INDEXER_REPAIR_FAILED_COOLDOWN_MS ?? 300_000);
+const REPAIR_MAX_FAILED_RETRIES = Number(process.env.POCKET_INDEXER_REPAIR_MAX_FAILED_RETRIES ?? 10);
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 const SETTLEMENT_EVENT_TYPE = "pocket.tokenomics.EventClaimSettled";
 const SUPPLIER_REWARD_REASONS = new Set([
@@ -224,8 +242,8 @@ async function fetchJson<T>(url: string, timeoutMs = RPC_TIMEOUT_MS): Promise<T>
   return (await response.json()) as T;
 }
 
-async function fetchFromRpcPool<T>(path: string, seed = 0): Promise<T> {
-  const candidates = [...RPC_URLS.slice(seed % RPC_URLS.length), ...RPC_URLS.slice(0, seed % RPC_URLS.length)];
+async function fetchFromRpcPool<T>(path: string, seed = 0, rpcUrls = RPC_URLS): Promise<T> {
+  const candidates = [...rpcUrls.slice(seed % rpcUrls.length), ...rpcUrls.slice(0, seed % rpcUrls.length)];
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= RPC_RETRIES; attempt += 1) {
@@ -330,14 +348,14 @@ function parseSettlementFact(event: RpcEvent, height: number, eventIndex: number
   };
 }
 
-async function fetchBlockFacts(height: number): Promise<IndexedSettlementFact[]> {
-  const response = await fetchFromRpcPool<RpcBlockResultsResponse>(`/block_results?height=${height}`, height);
+async function fetchBlockFacts(height: number, rpcUrls = RPC_URLS): Promise<IndexedSettlementFact[]> {
+  const response = await fetchFromRpcPool<RpcBlockResultsResponse>(`/block_results?height=${height}`, height, rpcUrls);
   const settlementEvents = extractEvents(response).filter((event) => event.type === SETTLEMENT_EVENT_TYPE);
   if (settlementEvents.length === 0) {
     return [];
   }
 
-  const block = await fetchFromRpcPool<RpcBlockResponse>(`/block?height=${height}`, height);
+  const block = await fetchFromRpcPool<RpcBlockResponse>(`/block?height=${height}`, height, rpcUrls);
   const blockTime = Date.parse(block.result?.block?.header?.time ?? "");
   if (!Number.isFinite(blockTime)) {
     throw new Error(`Unable to read block time for height ${height}`);
@@ -545,10 +563,141 @@ async function maybeRebuildCaches(force = false): Promise<void> {
   await rebuildIndexerCaches();
 }
 
-async function processHeight(height: number): Promise<void> {
-  const facts = await fetchBlockFacts(height);
-  saveIndexedBlock(height, facts);
-  if (facts.length > 0) cacheDirty = true;
+async function fetchBlockFactsWithRetries(height: number, rpcUrls = RPC_URLS): Promise<IndexedSettlementFact[]> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= BLOCK_RETRIES; attempt += 1) {
+    try {
+      return await fetchBlockFacts(height, rpcUrls);
+    } catch (error) {
+      lastError = error;
+      logWarn("Block fetch failed", {
+        height,
+        attempt,
+        maxAttempts: BLOCK_RETRIES,
+        error: formatError(error)
+      });
+      if (attempt < BLOCK_RETRIES) {
+        await sleep(RPC_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Unable to fetch block facts for height ${height}`);
+}
+
+async function processHeight(height: number, rpcUrls = RPC_URLS): Promise<boolean> {
+  try {
+    const facts = await fetchBlockFactsWithRetries(height, rpcUrls);
+    saveIndexedBlock(height, facts);
+    if (facts.length > 0) cacheDirty = true;
+    return true;
+  } catch (error) {
+    markIndexedHeightFailed(height, formatError(error));
+    logError("Height processing failed", error, { height });
+    return false;
+  }
+}
+
+async function fetchHeightResult(height: number, rpcUrls = BACKFILL_RPC_URLS): Promise<{ height: number; facts?: IndexedSettlementFact[]; error?: string }> {
+  try {
+    return { height, facts: await fetchBlockFactsWithRetries(height, rpcUrls) };
+  } catch (error) {
+    return { height, error: formatError(error) };
+  }
+}
+
+function getRepairCandidateHeights(fromHeight: number, toHeight: number, limit: number): { missing: number[]; failed: number[] } {
+  const coverage = getIndexedHeightCoverage(fromHeight, toHeight);
+  const byHeight = new Map(coverage.map((row) => [row.height, row]));
+  const missing: number[] = [];
+  const failed: number[] = [];
+  const now = Date.now();
+
+  for (let height = fromHeight; height <= toHeight && missing.length + failed.length < limit; height += 1) {
+    const row = byHeight.get(height);
+    if (!row) {
+      missing.push(height);
+      continue;
+    }
+    if (row.status === "failed") {
+      const lastTriedAt = new Date(row.scanned_at).getTime();
+      const cooldownElapsed = !Number.isFinite(lastTriedAt) || now - lastTriedAt >= REPAIR_FAILED_COOLDOWN_MS;
+      if (row.failure_count < REPAIR_MAX_FAILED_RETRIES && cooldownElapsed) {
+        failed.push(height);
+      }
+    }
+  }
+
+  return { missing, failed };
+}
+
+async function processRepairHeights(heights: number[], concurrency: number, source: string): Promise<{ repaired: number; failed: number; events: number }> {
+  if (heights.length === 0) return { repaired: 0, failed: 0, events: 0 };
+  const results = await mapConcurrent(heights, concurrency, (height) => fetchHeightResult(height, BACKFILL_RPC_URLS));
+  let repaired = 0;
+  let failed = 0;
+  let events = 0;
+
+  for (const result of results.sort((a, b) => a.height - b.height)) {
+    if (result.facts) {
+      saveIndexedBlock(result.height, result.facts);
+      repaired += 1;
+      events += result.facts.length;
+      if (result.facts.length > 0) cacheDirty = true;
+    } else {
+      markIndexedHeightFailed(result.height, result.error ?? "Unknown block fetch error");
+      failed += 1;
+    }
+  }
+
+  logInfo("Repair batch completed", {
+    source,
+    heights: heights.length,
+    repaired,
+    failed,
+    events,
+    rpcHealth: rpcHealthSnapshot()
+  });
+
+  return { repaired, failed, events };
+}
+
+async function runRepairLoop(): Promise<void> {
+  while (true) {
+    const startedAt = Date.now();
+    try {
+      const latestHeight = await getLatestHeight();
+      const retentionStartHeight = estimateBackfillStart(latestHeight, RETENTION_DAYS);
+      const { missing, failed } = getRepairCandidateHeights(retentionStartHeight, latestHeight, REPAIR_BATCH_SIZE);
+      const candidateHeights = [...missing, ...failed].sort((a, b) => a - b).slice(0, REPAIR_BATCH_SIZE);
+
+      if (candidateHeights.length > 0) {
+        const result = await processRepairHeights(candidateHeights, REPAIR_CONCURRENCY, "repair-loop");
+        await maybeRebuildCaches();
+        pruneIndexerData(RETENTION_DAYS);
+        pruneIndexedHeightCoverage(retentionStartHeight);
+        logInfo("Repair loop summary", {
+          latestHeight,
+          retentionStartHeight,
+          missingHeights: missing.length,
+          retryableFailedHeights: failed.length,
+          repairedHeights: result.repaired,
+          stillFailedHeights: result.failed,
+          durationMs: Date.now() - startedAt
+        });
+      } else {
+        logInfo("Repair loop found no gaps", {
+          latestHeight,
+          retentionStartHeight,
+          durationMs: Date.now() - startedAt
+        });
+      }
+    } catch (error) {
+      logError("Repair loop failed", error);
+    }
+
+    await sleep(REPAIR_INTERVAL_MS);
+  }
 }
 
 async function processRange(fromHeight: number, toHeight: number, maxBlocks?: number): Promise<void> {
@@ -596,29 +745,33 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
   let processedBlocks = 0;
   let indexedEvents = 0;
 
-    logInfo("Starting concurrent backfill range", {
-      fromHeight,
-      targetHeight,
-      totalBlocks,
-      concurrency: BACKFILL_CONCURRENCY,
-      batchSize: BACKFILL_BATCH_SIZE,
-      rpcTimeoutMs: RPC_TIMEOUT_MS,
-      rpcRetries: RPC_RETRIES,
-      rpcRetryDelayMs: RPC_RETRY_DELAY_MS
-    });
+  logInfo("Starting concurrent backfill range", {
+    fromHeight,
+    targetHeight,
+    totalBlocks,
+    concurrency: BACKFILL_CONCURRENCY,
+    batchSize: BACKFILL_BATCH_SIZE,
+    rpcTimeoutMs: RPC_TIMEOUT_MS,
+    rpcRetries: RPC_RETRIES,
+    rpcRetryDelayMs: RPC_RETRY_DELAY_MS,
+    blockRetries: BLOCK_RETRIES
+  });
 
   for (let batchStart = fromHeight; batchStart <= targetHeight; batchStart += BACKFILL_BATCH_SIZE) {
     const batchEnd = Math.min(targetHeight, batchStart + BACKFILL_BATCH_SIZE - 1);
     const heights = Array.from({ length: batchEnd - batchStart + 1 }, (_, index) => batchStart + index);
-    const batchResults = await mapConcurrent(heights, BACKFILL_CONCURRENCY, async (height) => ({
-      height,
-      facts: await fetchBlockFacts(height)
-    }));
+    const batchResults = await mapConcurrent(heights, BACKFILL_CONCURRENCY, (height) => fetchHeightResult(height, BACKFILL_RPC_URLS));
+    let failedBlocks = 0;
 
     for (const result of batchResults.sort((a, b) => a.height - b.height)) {
-      saveIndexedBlock(result.height, result.facts);
-      indexedEvents += result.facts.length;
-      if (result.facts.length > 0) cacheDirty = true;
+      if (result.facts) {
+        saveIndexedBlock(result.height, result.facts);
+        indexedEvents += result.facts.length;
+        if (result.facts.length > 0) cacheDirty = true;
+      } else {
+        markIndexedHeightFailed(result.height, result.error ?? "Unknown block fetch error");
+        failedBlocks += 1;
+      }
     }
 
     processedBlocks += heights.length;
@@ -634,6 +787,7 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
       processedBlocks,
       totalBlocks,
       indexedEvents,
+      failedBlocks,
       blocksPerMinute,
       eta: formatDuration(etaMs),
       rpcHealth: rpcHealthSnapshot()
@@ -785,7 +939,7 @@ export async function runIndexer(options: IndexerOptions = {}): Promise<void> {
       return;
     }
 
-    await runLive();
+    await Promise.all([runLive(), runRepairLoop()]);
   } catch (error) {
     finishJobRun(jobId, "failed", startedAt, { durationMs: Date.now() - startedAt }, error instanceof Error ? error.stack ?? error.message : String(error));
     throw error;

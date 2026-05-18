@@ -28,6 +28,17 @@ export type IndexedService = {
   computeUnitsPerRelay: number | null;
 };
 
+export type IndexedHeightStatus = "indexed" | "empty" | "failed";
+
+export type IndexedHeightCoverage = {
+  height: number;
+  status: IndexedHeightStatus;
+  event_count: number;
+  failure_count: number;
+  last_error: string | null;
+  scanned_at: string;
+};
+
 export type IndexedServiceAggregate = {
   service_id: string;
   service_name: string | null;
@@ -119,10 +130,20 @@ db.exec(`
     PRIMARY KEY (height, event_index)
   );
 
+  CREATE TABLE IF NOT EXISTS indexed_heights (
+    height INTEGER PRIMARY KEY,
+    status TEXT NOT NULL,
+    scanned_at TEXT NOT NULL,
+    event_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS settlement_facts_time_idx ON settlement_facts(block_time);
   CREATE INDEX IF NOT EXISTS settlement_facts_service_time_idx ON settlement_facts(service_id, block_time);
   CREATE INDEX IF NOT EXISTS settlement_facts_day_idx ON settlement_facts(day);
   CREATE INDEX IF NOT EXISTS settlement_facts_supplier_time_idx ON settlement_facts(supplier_hash, block_time);
+  CREATE INDEX IF NOT EXISTS indexed_heights_status_idx ON indexed_heights(status, height);
 `);
 
 const selectSettlementBlocksStatement = db.prepare(
@@ -236,7 +257,42 @@ const insertSettlementFactStatement = db.prepare(
   `
 );
 
+const upsertIndexedHeightStatement = db.prepare(
+  `
+    INSERT INTO indexed_heights (height, status, scanned_at, event_count, failure_count, last_error)
+    VALUES (@height, @status, @scanned_at, @event_count, @failure_count, @last_error)
+    ON CONFLICT(height) DO UPDATE SET
+      status = excluded.status,
+      scanned_at = excluded.scanned_at,
+      event_count = excluded.event_count,
+      failure_count = excluded.failure_count,
+      last_error = excluded.last_error
+  `
+);
+
+const markIndexedHeightFailedStatement = db.prepare(
+  `
+    INSERT INTO indexed_heights (height, status, scanned_at, event_count, failure_count, last_error)
+    VALUES (@height, 'failed', @scanned_at, 0, 1, @last_error)
+    ON CONFLICT(height) DO UPDATE SET
+      status = 'failed',
+      scanned_at = excluded.scanned_at,
+      failure_count = indexed_heights.failure_count + 1,
+      last_error = excluded.last_error
+  `
+);
+
+const selectIndexedHeightsStatement = db.prepare(
+  `
+    SELECT height, status, event_count, failure_count, last_error, scanned_at
+    FROM indexed_heights
+    WHERE height BETWEEN ? AND ?
+    ORDER BY height ASC
+  `
+);
+
 const deleteOldSettlementFactsStatement = db.prepare("DELETE FROM settlement_facts WHERE block_time < ?");
+const deleteOldIndexedHeightsStatement = db.prepare("DELETE FROM indexed_heights WHERE height < ?");
 const deleteOldJobRunsStatement = db.prepare(
   "DELETE FROM job_runs WHERE id NOT IN (SELECT id FROM job_runs ORDER BY id DESC LIMIT ?)"
 );
@@ -321,11 +377,23 @@ const writeIndexedBlockTransaction = db.transaction((height: number, facts: Inde
     });
   }
 
-  upsertIndexerStateStatement.run({
-    key: "last_processed_height",
-    value: String(height),
-    updated_at: new Date().toISOString()
+  upsertIndexedHeightStatement.run({
+    height,
+    status: facts.length > 0 ? "indexed" : "empty",
+    scanned_at: new Date().toISOString(),
+    event_count: facts.length,
+    failure_count: 0,
+    last_error: null
   });
+
+  const current = Number((selectIndexerStateStatement.get("last_processed_height") as { value: string } | undefined)?.value ?? 0);
+  if (height > current) {
+    upsertIndexerStateStatement.run({
+      key: "last_processed_height",
+      value: String(height),
+      updated_at: new Date().toISOString()
+    });
+  }
 });
 
 export function getCachedSettlementBlocks(heights: number[]): Map<number, CachedSettlementBlockRow> {
@@ -420,6 +488,22 @@ export function setIndexerState(key: string, value: string): void {
 
 export function saveIndexedBlock(height: number, facts: IndexedSettlementFact[]): void {
   writeIndexedBlockTransaction(height, facts);
+}
+
+export function markIndexedHeightFailed(height: number, error: string): void {
+  markIndexedHeightFailedStatement.run({
+    height,
+    scanned_at: new Date().toISOString(),
+    last_error: error.slice(0, 1000)
+  });
+}
+
+export function getIndexedHeightCoverage(fromHeight: number, toHeight: number): IndexedHeightCoverage[] {
+  return selectIndexedHeightsStatement.all(fromHeight, toHeight) as IndexedHeightCoverage[];
+}
+
+export function pruneIndexedHeightCoverage(minHeight: number): void {
+  deleteOldIndexedHeightsStatement.run(minHeight);
 }
 
 export function saveIndexedServices(services: IndexedService[]): void {

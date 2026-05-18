@@ -25,25 +25,29 @@ This repository does **not** implement the full RC1 architecture described in th
 Today, the project is intentionally lightweight:
 
 - a Next.js application for the UI and read-only API routes
-- a separate Node.js ingestion worker for external data collection
-- a small local SQLite cache for settlement blocks, metadata, and dashboard snapshots
-- `Poktscan` as the primary data source when available
-- direct Pocket RPC fallback when `Poktscan` is unavailable
+- a separate Node.js indexer for Pocket RPC/WebSocket data collection
+- a compact local SQLite store for indexed settlement facts, metadata, and dashboard snapshots
+- direct Pocket RPC as the primary source of truth
+- a legacy `Poktscan` ingestion worker kept temporarily as fallback while the indexer is validated
 - provider grouping at the domain level inside the ingestion model, with named provider data removed from public `main` surfaces
 
 That makes it a good public demo, but not yet a full historical analytics product backed by a dedicated indexer.
 
 ## Data Sources
 
-The dashboard uses a two-layer data strategy.
+The dashboard uses an indexer-first data strategy.
 
-### Primary path: `Poktscan`
+### Primary path: Pocket RPC indexer
 
-When available, the app loads pre-aggregated network data from `Poktscan` for faster response times and broader historical coverage.
+The `pocket-indexer` process subscribes to CometBFT new blocks over WebSocket, catches up any missing heights over HTTP RPC, parses `EventClaimSettled`, and writes compact settlement facts to SQLite. The UI reads only materialized SQLite cache payloads.
 
-### Fallback path: Pocket RPC
+### Legacy fallback: `Poktscan`
 
-When `Poktscan` is unavailable, the app falls back to Pocket Shannon RPC and reads settlement information from `end_block_events`.
+The older `npm run worker` ingestion path can still populate snapshots through `Poktscan` and RPC fallback, but it is no longer the preferred production data path.
+
+### Legacy RPC fallback semantics
+
+The legacy `npm run worker` path can fall back to Pocket Shannon RPC and read settlement information from `end_block_events`.
 
 In fallback mode it:
 
@@ -61,7 +65,7 @@ Some details are important when reading the numbers shown in the UI.
 - Named provider rankings and provider-level operational detail are intentionally out of scope for `main`.
 - The preserved `provider` branch keeps the provider/operator edition for private analysis.
 - USD values are derived from the live CoinGecko price for `pocket-network`.
-- Time windows are based on settlement block time, or the equivalent aggregated time window from `Poktscan`.
+- Time windows are based on settlement block time from indexed Pocket blocks.
 - The growth calculator is deliberately simple and designed to provide plausible onboarding guidance, not exact protocol-level forecasting.
 
 ## Default Endpoints
@@ -98,28 +102,52 @@ The UI reads local SQLite snapshots only. Run `npm run ingest` before opening th
 
 ## Production Runtime
 
-Run the web process and ingestion worker separately:
+Run the web process and indexer separately:
 
 ```bash
 npm run build
 npm run start
-npm run worker
+npm run indexer
 ```
 
 With PM2:
 
 ```bash
 pm2 start npm --name pocket-dashboard -- run start
-pm2 start npm --name pocket-worker -- run worker
+pm2 start npm --name pocket-indexer -- run indexer
 ```
 
-The worker owns all Poktscan/RPC requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Poktscan directly.
+The indexer owns all Pocket RPC/WebSocket requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Pocket RPC or Poktscan directly.
+
+Temporary legacy fallback:
+
+```bash
+pm2 start npm --name pocket-worker -- run worker
+```
 
 Optional worker interval override:
 
 ```bash
 POCKET_INGEST_INTERVAL_MS=3600000 npm run worker
 ```
+
+Indexer commands:
+
+```bash
+npm run indexer
+npm run indexer:once
+npm run indexer:backfill
+tsx scripts/indexer.ts --from-height 123456 --to-height 124000 --once
+```
+
+Indexer environment variables:
+
+- `POCKET_RPC_URLS` comma-separated RPC pool used for WebSocket and HTTP fallback
+- `POCKET_INDEXER_START_HEIGHT` optional first height when no checkpoint exists
+- `POCKET_INDEXER_RETENTION_DAYS` defaults to `45`
+- `POCKET_INDEXER_CACHE_INTERVAL_MS` defaults to `30000`
+- `POCKET_INDEXER_HASH_SALT` salt for privacy-preserving supplier/operator hashes
+- `POCKET_UI_MEMORY_CACHE_MS` defaults to `30000`
 
 ## Verification
 
@@ -133,7 +161,9 @@ npm run build
 The app uses:
 
 - SQLite persistence for settlement blocks, metadata, and dashboard snapshots
+- compact indexed settlement facts with a default 45-day retention window
 - `job_runs` records for ingestion success/failure tracking
+- materialized UI JSON cache payloads read directly by Next.js
 
 This keeps the public demo responsive and reduces repeated network fetches.
 

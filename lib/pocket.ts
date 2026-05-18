@@ -242,6 +242,7 @@ const RPC_URLS = Array.from(
 const SERVICES_PATH = "/pokt-network/poktroll/service/service";
 const SUPPLIERS_PATH = "/pokt-network/poktroll/supplier/supplier";
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const UI_MEMORY_CACHE_TTL_MS = Number(process.env.POCKET_UI_MEMORY_CACHE_MS ?? 30_000);
 const SUPPLIER_DIRECTORY_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_RPC_TIMEOUT_MS = 5_000;
 const BLOCK_RESULTS_TIMEOUT_MS = 8_000;
@@ -1238,7 +1239,7 @@ function hydrateDashboardCache(window: TimeWindow): DashboardData | null {
     }
     dashboardCache.set(window, {
       data,
-      expiresAt: new Date(persisted.updatedAt).getTime() + CACHE_TTL_MS
+      expiresAt: Date.now() + UI_MEMORY_CACHE_TTL_MS
     });
     return data;
   } catch {
@@ -1248,7 +1249,7 @@ function hydrateDashboardCache(window: TimeWindow): DashboardData | null {
 
 function persistDashboard(window: TimeWindow, data: DashboardData): DashboardData {
   dashboardCache.set(window, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
+    expiresAt: Date.now() + UI_MEMORY_CACHE_TTL_MS,
     data
   });
   setDashboardCache(window, JSON.stringify(serializeDashboardData(data)));
@@ -1257,7 +1258,7 @@ function persistDashboard(window: TimeWindow, data: DashboardData): DashboardDat
 
 function getCachedDashboardSnapshot(window: TimeWindow): DashboardData | null {
   const cached = dashboardCache.get(window);
-  if (hasServiceSupplierCounts(cached?.data)) {
+  if (cached && cached.expiresAt > Date.now() && hasServiceSupplierCounts(cached.data)) {
     return cached.data;
   }
 

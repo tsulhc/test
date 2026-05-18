@@ -13,7 +13,8 @@ Oggi il progetto ha gia:
 - vista servizi, trend reward aggregati e opportunity scoring
 - revenue calculator orientato all'onboarding
 - cache persistita in SQLite
-- fonte primaria `Poktscan` con fallback RPC diretto
+- nuovo indexer RPC/WebSocket proprietario in fase di adozione
+- fallback legacy `Poktscan`/RPC diretto ancora disponibile temporaneamente
 
 Questa roadmap quindi descrive soprattutto l'evoluzione verso una RC1 piu rigorosa e storicamente completa, non un lavoro da rifare da zero.
 
@@ -112,13 +113,15 @@ Done when:
 
 Output:
 
-- worker che scorre blocchi in ordine crescente
+- worker/indexer che scorre blocchi in ordine crescente e segue nuovi blocchi via WebSocket
 - parser di `EventClaimSettled`
 - persistenza idempotente
 
 Task:
 
 - leggere `end_block_events` per altezza
+- usare subscription `tm.event='NewBlock'` e recuperare `/block_results?height=N`
+- colmare gap dal checkpoint locale prima di entrare in live mode
 - filtrare gli eventi di tipo `EventClaimSettled`
 - salvare campi raw principali: blocco, timestamp, session, service, supplier, reward breakdown
 - costruire checkpoint di sync per resume in caso di restart

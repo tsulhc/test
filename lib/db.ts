@@ -9,6 +9,48 @@ type CachedSettlementBlockRow = {
   events_json: string;
 };
 
+export type IndexedSettlementFact = {
+  height: number;
+  eventIndex: number;
+  blockTime: number;
+  day: string;
+  hour: string;
+  serviceId: string;
+  supplierHash: string;
+  ownerHash: string | null;
+  relays: number;
+  revenueUpokt: string;
+};
+
+export type IndexedService = {
+  serviceId: string;
+  serviceName: string;
+  computeUnitsPerRelay: number | null;
+};
+
+export type IndexedServiceAggregate = {
+  service_id: string;
+  service_name: string | null;
+  compute_units_per_relay: number | null;
+  relays: number;
+  revenue_upokt: string;
+  supplier_count: number;
+  provider_count: number;
+};
+
+export type IndexedProviderAggregate = {
+  supplier_hash: string;
+  relays: number;
+  revenue_upokt: string;
+  service_count: number;
+};
+
+export type IndexedDailyAggregate = {
+  day: string;
+  relays: number;
+  revenue_upokt: string;
+};
+
 const defaultDbPath = path.join(process.cwd(), "data", "pocket-dashboard.sqlite");
 const dbPath = process.env.POCKET_SQLITE_PATH ?? defaultDbPath;
 
@@ -49,6 +91,38 @@ db.exec(`
     error TEXT,
     metadata_json TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS indexer_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS service_dim (
+    service_id TEXT PRIMARY KEY,
+    service_name TEXT NOT NULL,
+    compute_units_per_relay REAL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS settlement_facts (
+    height INTEGER NOT NULL,
+    event_index INTEGER NOT NULL,
+    block_time INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    hour TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    supplier_hash TEXT NOT NULL,
+    owner_hash TEXT,
+    relays INTEGER NOT NULL,
+    revenue_upokt TEXT NOT NULL,
+    PRIMARY KEY (height, event_index)
+  );
+
+  CREATE INDEX IF NOT EXISTS settlement_facts_time_idx ON settlement_facts(block_time);
+  CREATE INDEX IF NOT EXISTS settlement_facts_service_time_idx ON settlement_facts(service_id, block_time);
+  CREATE INDEX IF NOT EXISTS settlement_facts_day_idx ON settlement_facts(day);
+  CREATE INDEX IF NOT EXISTS settlement_facts_supplier_time_idx ON settlement_facts(supplier_hash, block_time);
 `);
 
 const selectSettlementBlocksStatement = db.prepare(
@@ -110,6 +184,149 @@ const updateJobRunStatement = db.prepare(
     WHERE id = @id
   `
 );
+
+const upsertIndexerStateStatement = db.prepare(
+  `
+    INSERT INTO indexer_state (key, value, updated_at)
+    VALUES (@key, @value, @updated_at)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = excluded.updated_at
+  `
+);
+
+const selectIndexerStateStatement = db.prepare("SELECT value FROM indexer_state WHERE key = ?");
+
+const upsertServiceStatement = db.prepare(
+  `
+    INSERT INTO service_dim (service_id, service_name, compute_units_per_relay, updated_at)
+    VALUES (@service_id, @service_name, @compute_units_per_relay, @updated_at)
+    ON CONFLICT(service_id) DO UPDATE SET
+      service_name = excluded.service_name,
+      compute_units_per_relay = excluded.compute_units_per_relay,
+      updated_at = excluded.updated_at
+  `
+);
+
+const insertSettlementFactStatement = db.prepare(
+  `
+    INSERT OR IGNORE INTO settlement_facts (
+      height,
+      event_index,
+      block_time,
+      day,
+      hour,
+      service_id,
+      supplier_hash,
+      owner_hash,
+      relays,
+      revenue_upokt
+    ) VALUES (
+      @height,
+      @event_index,
+      @block_time,
+      @day,
+      @hour,
+      @service_id,
+      @supplier_hash,
+      @owner_hash,
+      @relays,
+      @revenue_upokt
+    )
+  `
+);
+
+const deleteOldSettlementFactsStatement = db.prepare("DELETE FROM settlement_facts WHERE block_time < ?");
+const deleteOldJobRunsStatement = db.prepare(
+  "DELETE FROM job_runs WHERE id NOT IN (SELECT id FROM job_runs ORDER BY id DESC LIMIT ?)"
+);
+
+const selectServiceAggregatesStatement = db.prepare(
+  `
+    SELECT
+      facts.service_id,
+      service_dim.service_name,
+      service_dim.compute_units_per_relay,
+      SUM(facts.relays) AS relays,
+      CAST(SUM(CAST(facts.revenue_upokt AS INTEGER)) AS TEXT) AS revenue_upokt,
+      COUNT(DISTINCT facts.supplier_hash) AS supplier_count,
+      COUNT(DISTINCT COALESCE(facts.owner_hash, facts.supplier_hash)) AS provider_count
+    FROM settlement_facts facts
+    LEFT JOIN service_dim ON service_dim.service_id = facts.service_id
+    WHERE facts.block_time >= ?
+    GROUP BY facts.service_id
+    HAVING relays > 0 OR CAST(revenue_upokt AS INTEGER) > 0
+    ORDER BY CAST(revenue_upokt AS INTEGER) DESC, relays DESC
+  `
+);
+
+const selectProviderAggregatesStatement = db.prepare(
+  `
+    SELECT
+      supplier_hash,
+      SUM(relays) AS relays,
+      CAST(SUM(CAST(revenue_upokt AS INTEGER)) AS TEXT) AS revenue_upokt,
+      COUNT(DISTINCT service_id) AS service_count
+    FROM settlement_facts
+    WHERE block_time >= ?
+    GROUP BY supplier_hash
+    HAVING relays > 0 OR CAST(revenue_upokt AS INTEGER) > 0
+    ORDER BY CAST(revenue_upokt AS INTEGER) DESC, relays DESC
+  `
+);
+
+const selectDailyAggregatesStatement = db.prepare(
+  `
+    SELECT
+      day,
+      SUM(relays) AS relays,
+      CAST(SUM(CAST(revenue_upokt AS INTEGER)) AS TEXT) AS revenue_upokt
+    FROM settlement_facts
+    WHERE block_time >= ?
+    GROUP BY day
+    ORDER BY day ASC
+  `
+);
+
+const selectServiceDailyAggregatesStatement = db.prepare(
+  `
+    SELECT
+      day,
+      SUM(relays) AS relays,
+      CAST(SUM(CAST(revenue_upokt AS INTEGER)) AS TEXT) AS revenue_upokt
+    FROM settlement_facts
+    WHERE block_time >= ? AND service_id = ?
+    GROUP BY day
+    ORDER BY day ASC
+  `
+);
+
+const selectLatestIndexedFactStatement = db.prepare(
+  "SELECT height, block_time FROM settlement_facts ORDER BY height DESC LIMIT 1"
+);
+
+const writeIndexedBlockTransaction = db.transaction((height: number, facts: IndexedSettlementFact[]) => {
+  for (const fact of facts) {
+    insertSettlementFactStatement.run({
+      height: fact.height,
+      event_index: fact.eventIndex,
+      block_time: fact.blockTime,
+      day: fact.day,
+      hour: fact.hour,
+      service_id: fact.serviceId,
+      supplier_hash: fact.supplierHash,
+      owner_hash: fact.ownerHash,
+      relays: fact.relays,
+      revenue_upokt: fact.revenueUpokt
+    });
+  }
+
+  upsertIndexerStateStatement.run({
+    key: "last_processed_height",
+    value: String(height),
+    updated_at: new Date().toISOString()
+  });
+});
 
 export function getCachedSettlementBlocks(heights: number[]): Map<number, CachedSettlementBlockRow> {
   const result = new Map<number, CachedSettlementBlockRow>();
@@ -190,4 +407,59 @@ export function finishJobRun(id: number, status: "success" | "failed", startedAt
     error: error ?? null,
     metadata_json: metadata ? JSON.stringify(metadata) : null
   });
+}
+
+export function getIndexerState(key: string): string | null {
+  const row = selectIndexerStateStatement.get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setIndexerState(key: string, value: string): void {
+  upsertIndexerStateStatement.run({ key, value, updated_at: new Date().toISOString() });
+}
+
+export function saveIndexedBlock(height: number, facts: IndexedSettlementFact[]): void {
+  writeIndexedBlockTransaction(height, facts);
+}
+
+export function saveIndexedServices(services: IndexedService[]): void {
+  const now = new Date().toISOString();
+  const transaction = db.transaction((entries: IndexedService[]) => {
+    for (const service of entries) {
+      upsertServiceStatement.run({
+        service_id: service.serviceId,
+        service_name: service.serviceName,
+        compute_units_per_relay: service.computeUnitsPerRelay,
+        updated_at: now
+      });
+    }
+  });
+  transaction(services);
+}
+
+export function getIndexedServiceAggregates(sinceUnixMs: number): IndexedServiceAggregate[] {
+  return selectServiceAggregatesStatement.all(sinceUnixMs) as IndexedServiceAggregate[];
+}
+
+export function getIndexedProviderAggregates(sinceUnixMs: number): IndexedProviderAggregate[] {
+  return selectProviderAggregatesStatement.all(sinceUnixMs) as IndexedProviderAggregate[];
+}
+
+export function getIndexedDailyAggregates(sinceUnixMs: number): IndexedDailyAggregate[] {
+  return selectDailyAggregatesStatement.all(sinceUnixMs) as IndexedDailyAggregate[];
+}
+
+export function getIndexedServiceDailyAggregates(sinceUnixMs: number, serviceId: string): IndexedDailyAggregate[] {
+  return selectServiceDailyAggregatesStatement.all(sinceUnixMs, serviceId) as IndexedDailyAggregate[];
+}
+
+export function getLatestIndexedFact(): { height: number; block_time: number } | null {
+  const row = selectLatestIndexedFactStatement.get() as { height: number; block_time: number } | undefined;
+  return row ?? null;
+}
+
+export function pruneIndexerData(retentionDays: number, maxJobRuns = 500): void {
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  deleteOldSettlementFactsStatement.run(cutoff);
+  deleteOldJobRunsStatement.run(maxJobRuns);
 }

@@ -8,6 +8,9 @@
     "start": "next start -p 3100",
     "ingest": "tsx scripts/ingest.ts",
     "worker": "tsx scripts/ingest.ts --watch",
+    "indexer": "tsx scripts/indexer.ts --live",
+    "indexer:once": "tsx scripts/indexer.ts --once",
+    "indexer:backfill": "tsx scripts/indexer.ts --backfill 45d",
     "lint": "next lint",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },

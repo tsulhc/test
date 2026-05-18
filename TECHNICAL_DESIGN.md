@@ -8,7 +8,8 @@ Il branch `provider` conserva la precedente edizione operator/provider intellige
 
 In particolare oggi:
 
-- l'applicazione e una app Next.js servita separatamente da un worker Node.js di ingestion
+- l'applicazione e una app Next.js servita separatamente da un indexer Node.js persistente
+- l'indexer segue i nuovi blocchi via WebSocket CometBFT e usa HTTP RPC per recuperare `/block_results` e colmare gap
 - la dashboard tenta prima di leggere aggregati da `Poktscan`
 - se `Poktscan` non e disponibile, usa un fallback RPC che legge `EventClaimSettled` dagli `end_block_events`
 - la persistenza locale e un SQLite leggero usato per cache di settlement block, metadata e snapshot della dashboard
@@ -106,6 +107,7 @@ Servono quindi:
 - indicizzazione degli eventi
 - persistenza locale
 - aggregazioni applicative
+- materializzazione aggressiva delle cache JSON consumate dalla UI
 
 ### L'evento corretto e `EventClaimSettled`
 
@@ -140,7 +142,21 @@ Conseguenza pratica:
 - l'indicizzazione non deve basarsi solo su tx search o sugli eventi delle tx utente
 - il worker deve leggere i `block_results` e gli `end_block_events` blocco per blocco
 
-Questo e il punto implementativo piu importante dell'intero progetto.
+Questo e il punto implementativo piu importante dell'intero progetto. Nel branch `main`, l'indexer salva solo facts compatti e identita hashate; i payload pubblici non includono nomi, domini, indirizzi o mix operativi per-provider.
+
+## Indexer Runtime Corrente
+
+Il processo `npm run indexer`:
+
+- sincronizza la dimensione `service_dim` via REST
+- legge il checkpoint `indexer_state.last_processed_height`
+- recupera gap via HTTP RPC
+- sottoscrive `tm.event='NewBlock'` via WebSocket
+- processa ogni height in modo idempotente
+- scrive `settlement_facts` con retention predefinita di 45 giorni
+- rigenera cache UI per `24h`, `7d`, `30d` e history principali
+
+Il vecchio `npm run worker` resta fallback legacy finche il nuovo indexer non e completamente validato in produzione.
 
 ## Origine dei Numeri Economici
 

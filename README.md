@@ -146,12 +146,21 @@ Backfill uses concurrent RPC reads and writes checkpoints in height order. For p
 POCKET_INDEXER_BACKFILL_CONCURRENCY=8 POCKET_INDEXER_BACKFILL_BATCH_SIZE=500 npm run indexer:backfill
 ```
 
+If the RPC pool is slow or rate-limited, reduce concurrency and increase the per-request timeout. The indexer retries failed RPC calls across the full node pool before aborting, and progress logs include per-node success/failure/timeout counters.
+
+```bash
+POCKET_INDEXER_RPC_TIMEOUT_MS=30000 POCKET_INDEXER_BACKFILL_CONCURRENCY=2 POCKET_INDEXER_BACKFILL_BATCH_SIZE=100 npm run indexer:backfill
+```
+
 Indexer environment variables:
 
 - `POCKET_RPC_URLS` comma-separated RPC pool used for WebSocket and HTTP fallback
 - `POCKET_INDEXER_START_HEIGHT` optional first height when no checkpoint exists
 - `POCKET_INDEXER_RETENTION_DAYS` defaults to `45`
 - `POCKET_INDEXER_CACHE_INTERVAL_MS` defaults to `30000`
+- `POCKET_INDEXER_RPC_TIMEOUT_MS` defaults to `8000`
+- `POCKET_INDEXER_RPC_RETRIES` defaults to `3` attempts across the RPC pool
+- `POCKET_INDEXER_RPC_RETRY_DELAY_MS` defaults to `500`
 - `POCKET_INDEXER_AVG_BLOCK_SECONDS` defaults to `60` for Pocket backfill height estimation
 - `POCKET_INDEXER_BACKFILL_CONCURRENCY` defaults to `8`
 - `POCKET_INDEXER_BACKFILL_BATCH_SIZE` defaults to `500`

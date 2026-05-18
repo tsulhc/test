@@ -154,6 +154,8 @@ Il processo `npm run indexer`:
 - sottoscrive `tm.event='NewBlock'` via WebSocket
 - processa ogni height in modo idempotente
 - usa backfill concorrente a batch, con checkpoint scritto in ordine di altezza
+- ritenta le chiamate RPC fallite su tutto il pool, con backoff configurabile
+- espone nei log del backfill successi, fallimenti, timeout e latenza media per nodo RPC
 - rigenera le cache una sola volta a fine catchup/backfill, evitando rebuild costosi ogni pochi blocchi
 - scrive `settlement_facts` con retention predefinita di 45 giorni
 - rigenera cache UI per `24h`, `7d`, `30d` e history principali

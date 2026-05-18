@@ -137,6 +137,8 @@ const HASH_SALT = process.env.POCKET_INDEXER_HASH_SALT ?? "pocket-dashboard-publ
 const RETENTION_DAYS = Number(process.env.POCKET_INDEXER_RETENTION_DAYS ?? 45);
 const CACHE_INTERVAL_MS = Number(process.env.POCKET_INDEXER_CACHE_INTERVAL_MS ?? 30_000);
 const RPC_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_RPC_TIMEOUT_MS ?? 8_000);
+const RPC_RETRIES = Number(process.env.POCKET_INDEXER_RPC_RETRIES ?? 3);
+const RPC_RETRY_DELAY_MS = Number(process.env.POCKET_INDEXER_RPC_RETRY_DELAY_MS ?? 500);
 const WS_IDLE_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_WS_IDLE_TIMEOUT_MS ?? 45_000);
 const BACKFILL_CONCURRENCY = Number(process.env.POCKET_INDEXER_BACKFILL_CONCURRENCY ?? 8);
 const BACKFILL_BATCH_SIZE = Number(process.env.POCKET_INDEXER_BACKFILL_BATCH_SIZE ?? 500);
@@ -149,6 +151,7 @@ const SUPPLIER_REWARD_REASONS = new Set([
 
 let lastCacheBuildAt = 0;
 let cacheDirty = true;
+const rpcStats = new Map<string, { successes: number; failures: number; timeouts: number; totalLatencyMs: number }>();
 
 function logInfo(message: string, context?: Record<string, unknown>): void {
   console.info(`[pocket-dashboard:indexer] ${message}`, context ?? "");
@@ -167,6 +170,37 @@ function logError(message: string, error: unknown, context?: Record<string, unkn
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  return String(error);
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+function recordRpcResult(rpcUrl: string, ok: boolean, latencyMs: number, error?: unknown): void {
+  const stats = rpcStats.get(rpcUrl) ?? { successes: 0, failures: 0, timeouts: 0, totalLatencyMs: 0 };
+  if (ok) {
+    stats.successes += 1;
+    stats.totalLatencyMs += latencyMs;
+  } else {
+    stats.failures += 1;
+    if (isTimeoutError(error)) stats.timeouts += 1;
+  }
+  rpcStats.set(rpcUrl, stats);
+}
+
+function rpcHealthSnapshot(): Array<{ rpcUrl: string; successes: number; failures: number; timeouts: number; avgLatencyMs: number }> {
+  return Array.from(rpcStats.entries()).map(([rpcUrl, stats]) => ({
+    rpcUrl,
+    successes: stats.successes,
+    failures: stats.failures,
+    timeouts: stats.timeouts,
+    avgLatencyMs: stats.successes === 0 ? 0 : Math.round(stats.totalLatencyMs / stats.successes)
+  }));
 }
 
 function rpcPath(baseUrl: string, path: string): string {
@@ -193,11 +227,28 @@ async function fetchFromRpcPool<T>(path: string, seed = 0): Promise<T> {
   const candidates = [...RPC_URLS.slice(seed % RPC_URLS.length), ...RPC_URLS.slice(0, seed % RPC_URLS.length)];
   let lastError: unknown;
 
-  for (const rpcUrl of candidates) {
-    try {
-      return await fetchJson<T>(rpcPath(rpcUrl, path));
-    } catch (error) {
-      lastError = error;
+  for (let attempt = 1; attempt <= RPC_RETRIES; attempt += 1) {
+    for (const rpcUrl of candidates) {
+      const startedAt = Date.now();
+      try {
+        const result = await fetchJson<T>(rpcPath(rpcUrl, path));
+        recordRpcResult(rpcUrl, true, Date.now() - startedAt);
+        return result;
+      } catch (error) {
+        lastError = error;
+        recordRpcResult(rpcUrl, false, Date.now() - startedAt, error);
+        logWarn("RPC request failed", {
+          rpcUrl,
+          path,
+          attempt,
+          maxAttempts: RPC_RETRIES,
+          error: formatError(error)
+        });
+      }
+    }
+
+    if (attempt < RPC_RETRIES) {
+      await sleep(RPC_RETRY_DELAY_MS * attempt);
     }
   }
 
@@ -544,13 +595,16 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
   let processedBlocks = 0;
   let indexedEvents = 0;
 
-  logInfo("Starting concurrent backfill range", {
-    fromHeight,
-    targetHeight,
-    totalBlocks,
-    concurrency: BACKFILL_CONCURRENCY,
-    batchSize: BACKFILL_BATCH_SIZE
-  });
+    logInfo("Starting concurrent backfill range", {
+      fromHeight,
+      targetHeight,
+      totalBlocks,
+      concurrency: BACKFILL_CONCURRENCY,
+      batchSize: BACKFILL_BATCH_SIZE,
+      rpcTimeoutMs: RPC_TIMEOUT_MS,
+      rpcRetries: RPC_RETRIES,
+      rpcRetryDelayMs: RPC_RETRY_DELAY_MS
+    });
 
   for (let batchStart = fromHeight; batchStart <= targetHeight; batchStart += BACKFILL_BATCH_SIZE) {
     const batchEnd = Math.min(targetHeight, batchStart + BACKFILL_BATCH_SIZE - 1);
@@ -580,7 +634,8 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
       totalBlocks,
       indexedEvents,
       blocksPerMinute,
-      eta: formatDuration(etaMs)
+      eta: formatDuration(etaMs),
+      rpcHealth: rpcHealthSnapshot()
     });
   }
 }

@@ -153,6 +153,8 @@ Il processo `npm run indexer`:
 - recupera gap via HTTP RPC
 - sottoscrive `tm.event='NewBlock'` via WebSocket
 - processa ogni height in modo idempotente
+- usa backfill concorrente a batch, con checkpoint scritto in ordine di altezza
+- rigenera le cache una sola volta a fine catchup/backfill, evitando rebuild costosi ogni pochi blocchi
 - scrive `settlement_facts` con retention predefinita di 45 giorni
 - rigenera cache UI per `24h`, `7d`, `30d` e history principali
 

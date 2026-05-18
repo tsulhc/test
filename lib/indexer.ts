@@ -138,6 +138,8 @@ const RETENTION_DAYS = Number(process.env.POCKET_INDEXER_RETENTION_DAYS ?? 45);
 const CACHE_INTERVAL_MS = Number(process.env.POCKET_INDEXER_CACHE_INTERVAL_MS ?? 30_000);
 const RPC_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_RPC_TIMEOUT_MS ?? 8_000);
 const WS_IDLE_TIMEOUT_MS = Number(process.env.POCKET_INDEXER_WS_IDLE_TIMEOUT_MS ?? 45_000);
+const BACKFILL_CONCURRENCY = Number(process.env.POCKET_INDEXER_BACKFILL_CONCURRENCY ?? 8);
+const BACKFILL_BATCH_SIZE = Number(process.env.POCKET_INDEXER_BACKFILL_BATCH_SIZE ?? 500);
 const WINDOWS: TimeWindow[] = ["24h", "7d", "30d"];
 const SETTLEMENT_EVENT_TYPE = "pocket.tokenomics.EventClaimSettled";
 const SUPPLIER_REWARD_REASONS = new Set([
@@ -509,8 +511,82 @@ async function processRange(fromHeight: number, toHeight: number, maxBlocks?: nu
   }
 }
 
+async function mapConcurrent<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  async function run(): Promise<void> {
+    while (cursor < items.length) {
+      const current = cursor;
+      cursor += 1;
+      results[current] = await worker(items[current]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => run()));
+  return results;
+}
+
+function formatDuration(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes === 0) return `${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours === 0 ? `${remainingMinutes}m ${remainingSeconds}s` : `${hours}h ${remainingMinutes}m`;
+}
+
+async function processBackfillRange(fromHeight: number, toHeight: number, maxBlocks?: number): Promise<void> {
+  const targetHeight = maxBlocks ? Math.min(toHeight, fromHeight + maxBlocks - 1) : toHeight;
+  const totalBlocks = Math.max(0, targetHeight - fromHeight + 1);
+  const startedAt = Date.now();
+  let processedBlocks = 0;
+  let indexedEvents = 0;
+
+  logInfo("Starting concurrent backfill range", {
+    fromHeight,
+    targetHeight,
+    totalBlocks,
+    concurrency: BACKFILL_CONCURRENCY,
+    batchSize: BACKFILL_BATCH_SIZE
+  });
+
+  for (let batchStart = fromHeight; batchStart <= targetHeight; batchStart += BACKFILL_BATCH_SIZE) {
+    const batchEnd = Math.min(targetHeight, batchStart + BACKFILL_BATCH_SIZE - 1);
+    const heights = Array.from({ length: batchEnd - batchStart + 1 }, (_, index) => batchStart + index);
+    const batchResults = await mapConcurrent(heights, BACKFILL_CONCURRENCY, async (height) => ({
+      height,
+      facts: await fetchBlockFacts(height)
+    }));
+
+    for (const result of batchResults.sort((a, b) => a.height - b.height)) {
+      saveIndexedBlock(result.height, result.facts);
+      indexedEvents += result.facts.length;
+      if (result.facts.length > 0) cacheDirty = true;
+    }
+
+    processedBlocks += heights.length;
+    setIndexerState("latest_seen_height", String(toHeight));
+    const elapsedMs = Date.now() - startedAt;
+    const blocksPerMinute = elapsedMs === 0 ? 0 : Math.round((processedBlocks / elapsedMs) * 60_000);
+    const remainingBlocks = Math.max(0, totalBlocks - processedBlocks);
+    const etaMs = blocksPerMinute === 0 ? 0 : (remainingBlocks / blocksPerMinute) * 60_000;
+
+    logInfo("Concurrent backfill progress", {
+      height: batchEnd,
+      targetHeight,
+      processedBlocks,
+      totalBlocks,
+      indexedEvents,
+      blocksPerMinute,
+      eta: formatDuration(etaMs)
+    });
+  }
+}
+
 function estimateBackfillStart(latestHeight: number, days: number): number {
-  const averageBlockSeconds = Number(process.env.POCKET_INDEXER_AVG_BLOCK_SECONDS ?? 1);
+  const averageBlockSeconds = Number(process.env.POCKET_INDEXER_AVG_BLOCK_SECONDS ?? 5.2);
   return Math.max(1, latestHeight - Math.ceil((days * 24 * 60 * 60) / averageBlockSeconds));
 }
 
@@ -525,7 +601,11 @@ async function runCatchup(options: IndexerOptions): Promise<void> {
 
   setIndexerState("latest_seen_height", String(latestHeight));
   if (fromHeight <= latestHeight) {
-    await processRange(fromHeight, latestHeight, options.maxBlocks);
+    if (options.live && !options.backfillDays && !options.fromHeight && !options.toHeight) {
+      await processRange(fromHeight, latestHeight, options.maxBlocks);
+    } else {
+      await processBackfillRange(fromHeight, latestHeight, options.maxBlocks);
+    }
   }
   await maybeRebuildCaches(true);
 }

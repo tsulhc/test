@@ -122,6 +122,7 @@ Task:
 - leggere `end_block_events` per altezza
 - usare subscription `tm.event='NewBlock'` e recuperare `/block_results?height=N`
 - colmare gap dal checkpoint locale prima di entrare in live mode
+- eseguire backfill storico a batch concorrenti con checkpoint ordinato e cache rebuild finale
 - filtrare gli eventi di tipo `EventClaimSettled`
 - salvare campi raw principali: blocco, timestamp, session, service, supplier, reward breakdown
 - costruire checkpoint di sync per resume in caso di restart

@@ -207,13 +207,15 @@ code {
 .page {
   width: min(1440px, calc(100vw - 48px));
   margin: 0 auto;
-  padding: 48px 0 100px;
+  padding: 64px 0 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
 }
 
 .hero {
   display: grid;
-  gap: 32px;
-  margin-bottom: 48px;
+  gap: 40px;
 }
 
 .hero-main {
@@ -600,7 +602,6 @@ code {
 
 .section-grid {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  margin-bottom: 48px;
 }
 
 .section-grid-visual {
@@ -1192,8 +1193,7 @@ code {
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
-  margin-bottom: 48px;
+  gap: 32px;
 }
 
 .kpi {

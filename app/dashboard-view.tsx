@@ -534,7 +534,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           <DomainDistribution data={data} />
         </article>
 
-        <article className="panel section">
+        <article className="panel section themed section-theme-integrity">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Public Methodology</h2>

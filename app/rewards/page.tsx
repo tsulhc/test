@@ -73,20 +73,20 @@ export default async function RewardsPage() {
         }} />
         
         <div>
-          <span className="eyebrow">Settlement Analysis</span>
+          <span className="eyebrow">Settlement</span>
           <h1>Network Rewards.</h1>
           <p className="section-subtitle" style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
-            Inspect finalized reward flow across the ecosystem. Analyze anonymous concentration, unit rewards, and settlement methodology.
+            Inspect finalized reward flow across the ecosystem. Analyze concentration, unit yields, and settlement methodology.
           </p>
         </div>
         
         <div className="explorer-summary-grid">
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            <span className="hero-highlight-label">Cumulative Rewards</span>
+            <span className="hero-highlight-label">Total Rewards</span>
             <strong style={{ color: 'var(--yellow-primary)' }}>{formatCompactUpokt(data.totalRevenueUpokt, 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            <span className="hero-highlight-label">USD Equivalent</span>
+            <span className="hero-highlight-label">Est. Value</span>
             <strong style={{ color: 'var(--text)' }}>{formatCompactUsd(toPoktNumber(data.totalRevenueUpokt) * data.poktPriceUsd, 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
@@ -98,35 +98,35 @@ export default async function RewardsPage() {
 
       <section className="kpi-grid kpi-grid-strong rewards-kpi-grid">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Average Domain Reward</span>
+          <span className="kpi-label">Avg. Domain Earnings</span>
           <span className="kpi-value">{formatDecimal(averageReward, 1)} POKT</span>
-          <span className="kpi-foot">Across {formatInteger(data.activeProviders)} active domains</span>
+          <span className="kpi-foot">Across {formatInteger(data.activeProviders)} domains</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Active Reward Domains</span>
+          <span className="kpi-label">Active Domains</span>
           <span className="kpi-value">{formatInteger(data.activeProviders)}</span>
-          <span className="kpi-foot">Domains with finalized rewards in the 30d window</span>
+          <span className="kpi-foot">With rewards in the 30d window</span>
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Top 5 Concentration</span>
           <span className="kpi-value" style={{ color: 'var(--accent)' }}>{formatPercent(getShare(top5ProviderRewards, data.totalRevenueUpokt), 1)}</span>
-          <span className="kpi-foot">Market share of top 5 entities</span>
+          <span className="kpi-foot">Share of top 5 entities</span>
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Top Service Share</span>
           <span className="kpi-value" style={{ color: 'var(--yellow-primary)' }}>{topService ? formatPercent(getShare(topService.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
-          <span className="kpi-foot">{topService?.serviceName ?? "No service activity"}</span>
+          <span className="kpi-foot">{topService?.serviceName ?? "No activity"}</span>
         </article>
       </section>
 
       <TimeseriesPanel
-        title="Daily Network Reward Flow"
-        subtitle="Settled rewards by day, with a 7-day moving average for trend direction."
-        eyebrow="Reward Trend"
+        title="Reward Flow"
+        subtitle="Daily settled rewards with a 7-day moving average."
+        eyebrow="Trend"
         points={rewardHistoryPoints}
         valueLabel="rewards"
         formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
-        emptyText="Daily reward history is not available yet. Reward concentration tables remain available from the 30d snapshot."
+        emptyText="Daily history is currently unavailable."
         theme="revenue"
       />
 
@@ -134,26 +134,26 @@ export default async function RewardsPage() {
         <article className="panel section themed section-theme-integrity">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Reward Methodology</h2>
-              <p className="section-subtitle">Defining finalized public reward flow.</p>
+              <h2 className="section-title">Methodology</h2>
+              <p className="section-subtitle">Defining finalized reward flow.</p>
             </div>
             <span className="pill">Settlement</span>
           </div>
           <div className="reward-method-list">
             <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-              <span className="hero-highlight-label">Source Protocol Event</span>
-              <strong style={{ fontSize: '1.1rem' }}>EndBlock Claim Settlements</strong>
-              <p style={{ fontSize: '0.85rem' }}>Finalized revenue is extracted from <code>pocket.tokenomics.EventClaimSettled</code> results emitted by the protocol during block finalization.</p>
+              <span className="hero-highlight-label">Source</span>
+              <strong style={{ fontSize: '1.1rem' }}>Claim Settlements</strong>
+              <p style={{ fontSize: '0.85rem' }}>Rewards are extracted from protocol events emitted during block finalization.</p>
             </div>
             <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-              <span className="hero-highlight-label">Attribution Model</span>
-              <strong style={{ fontSize: '1.1rem' }}>Supplier-Direct Allocation</strong>
-              <p style={{ fontSize: '0.85rem' }}>The dashboard captures the specific share of the minted POKT that is allocated directly to suppliers, excluding other distribution targets.</p>
+              <span className="hero-highlight-label">Attribution</span>
+              <strong style={{ fontSize: '1.1rem' }}>Supplier Share</strong>
+              <p style={{ fontSize: '0.85rem' }}>We capture the specific share allocated directly to suppliers, excluding DAO and other targets.</p>
             </div>
             <div className="reward-method-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-              <span className="hero-highlight-label">Market Rollup</span>
-              <strong style={{ fontSize: '1.1rem' }}>Anonymous Domain Aggregates</strong>
-              <p style={{ fontSize: '0.85rem' }}>Individual supplier operators are aggregated into anonymous domain-level cohorts for neutral public benchmarking.</p>
+              <span className="hero-highlight-label">Aggregation</span>
+              <strong style={{ fontSize: '1.1rem' }}>Domain Cohorts</strong>
+              <p style={{ fontSize: '0.85rem' }}>Operators are grouped into anonymous domains for neutral public benchmarking.</p>
             </div>
           </div>
         </article>
@@ -161,27 +161,27 @@ export default async function RewardsPage() {
         <article className="panel section themed section-theme-privacy">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Market Concentration</h2>
-              <p className="section-subtitle">Finalized 30d reward distribution profile.</p>
+              <h2 className="section-title">Concentration</h2>
+              <p className="section-subtitle">30d reward distribution profile.</p>
             </div>
-            <span className="pill">Concentration</span>
+            <span className="pill">Market Shape</span>
           </div>
           <div className="insight-list">
             <div className="insight-row">
-              <span className="muted">Top 5 Groups Cumulative</span>
+              <span className="muted">Top 5 Groups</span>
               <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatUpokt(top5ProviderRewards, 1)}</strong>
             </div>
             <div className="insight-row">
-              <span className="muted">Top 5 Services Cumulative</span>
+              <span className="muted">Top 5 Services</span>
               <strong className="accent-number">{formatUpokt(top5ServiceRewards, 1)}</strong>
             </div>
             <div className="insight-row">
-              <span className="muted">Settled Relay Volume</span>
+              <span className="muted">Volume</span>
               <strong>{formatCompactNumber(data.totalRelays)} relays</strong>
             </div>
             <div className="insight-row">
-              <span className="muted">Intelligence Source</span>
-              <strong style={{ color: 'var(--green)' }}>{data.dataSource === "poktscan" ? "Poktscan Verified" : "Direct Node Sync"}</strong>
+              <span className="muted">Source</span>
+              <strong style={{ color: 'var(--green)' }}>{data.dataSource === "poktscan" ? "Verified" : "Node Sync"}</strong>
             </div>
           </div>
         </article>
@@ -191,20 +191,20 @@ export default async function RewardsPage() {
         <article className="panel section themed section-theme-revenue">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Top Earning Chains</h2>
-              <p className="section-subtitle">Services driving the highest settled rewards.</p>
+              <h2 className="section-title">Top Services</h2>
+              <p className="section-subtitle">Chains driving the highest rewards.</p>
             </div>
             <Link href="/chains" className="calculator-action" style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }}>
-              Chains →
+              All Chains →
             </Link>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="mini-table">
               <thead>
                 <tr>
-                  <th>Service Identity</th>
-                  <th className="right">Final Rewards</th>
-                  <th className="right">Participants</th>
+                  <th>Service</th>
+                  <th className="right">Rewards</th>
+                  <th className="right">Domains</th>
                 </tr>
               </thead>
               <tbody>
@@ -218,7 +218,7 @@ export default async function RewardsPage() {
                       <strong className="accent-number">{formatUpokt(service.revenueUpokt, 1)}</strong>
                     </td>
                     <td className="right">
-                      {formatInteger(service.providerCount)} domains
+                      {formatInteger(service.providerCount)}
                     </td>
                   </tr>
                 ))}

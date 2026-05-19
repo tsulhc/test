@@ -119,7 +119,7 @@ pm2 start npm --name pocket-dashboard -- run start
 pm2 start npm --name pocket-indexer -- run indexer
 ```
 
-The indexer owns all Pocket RPC/WebSocket requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Pocket RPC or Poktscan directly. `npm run indexer:backfill` remains available for manual/debug runs, but production should normally only run `npm run indexer`.
+The indexer owns all Pocket RPC/WebSocket requests and writes dashboard snapshots to SQLite. The Next.js request path does not call Pocket RPC or Poktscan directly. Production `npm run indexer` is live-first: it opens the WebSocket immediately, runs bounded live catchup in the background, and lets the repair loop fill historical gaps without blocking current-height sync. `npm run indexer:backfill` remains available for manual/debug runs, but production should normally only run `npm run indexer`.
 
 Temporary legacy fallback:
 
@@ -142,7 +142,7 @@ npm run indexer:backfill
 tsx scripts/indexer.ts --from-height 123456 --to-height 124000 --once
 ```
 
-Backfill uses concurrent RPC reads and writes checkpoints in height order. For production backfills, tune throughput conservatively against your RPC pool:
+Manual backfill uses concurrent RPC reads and writes checkpoints in height order. For debug backfills, tune throughput conservatively against your RPC pool:
 
 ```bash
 POCKET_INDEXER_BACKFILL_CONCURRENCY=8 POCKET_INDEXER_BACKFILL_BATCH_SIZE=500 npm run indexer:backfill

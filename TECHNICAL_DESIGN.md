@@ -148,18 +148,19 @@ Questo e il punto implementativo piu importante dell'intero progetto. Nel branch
 
 Il processo `npm run indexer`:
 
-- sincronizza la dimensione `service_dim` via REST
+- apre subito il WebSocket live, senza attendere backfill o repair storici
+- sincronizza la dimensione `service_dim` via REST in background durante lo startup live
 - legge il checkpoint `indexer_state.last_processed_height`
-- recupera gap via HTTP RPC
+- recupera piccoli gap live via HTTP RPC con catchup bounded e best-effort
 - sottoscrive `tm.event='NewBlock'` via WebSocket
 - processa ogni height in modo idempotente
 - registra coverage per height in `indexed_heights`, con stato `indexed`, `empty` o `failed`
-- usa backfill concorrente a batch, con checkpoint scritto in ordine di altezza
+- usa backfill concorrente a batch solo per comandi manuali/debug
 - ritenta le chiamate RPC fallite su tutto il pool, con backoff configurabile
 - ritenta anche a livello di height, così un timeout su `/block_results` o `/block` non interrompe il range
 - espone nei log del backfill successi, fallimenti, timeout e latenza media per nodo RPC
 - in live mode evita catchup enormi da checkpoint obsoleti e riparte dal tip quando il gap supera la soglia configurata
-- in produzione esegue live WebSocket e repair loop in parallelo: il repair trova buchi negli ultimi 45 giorni e li riempie autonomamente
+- in produzione esegue live WebSocket e repair loop in parallelo: il repair trova buchi negli ultimi 45 giorni e li riempie autonomamente senza bloccare la sync dell'altezza corrente
 - rigenera le cache una sola volta a fine catchup/backfill, evitando rebuild costosi ogni pochi blocchi
 - scrive `settlement_facts` con retention predefinita di 45 giorni
 - rigenera cache UI per `24h`, `7d`, `30d` e history principali

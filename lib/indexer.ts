@@ -170,6 +170,7 @@ const SUPPLIER_REWARD_REASONS = new Set([
 
 let lastCacheBuildAt = 0;
 let cacheDirty = true;
+let liveCatchupInFlight = false;
 const rpcStats = new Map<string, { successes: number; failures: number; timeouts: number; totalLatencyMs: number }>();
 
 function logInfo(message: string, context?: Record<string, unknown>): void {
@@ -832,6 +833,54 @@ async function runCatchup(options: IndexerOptions): Promise<void> {
   await maybeRebuildCaches(true);
 }
 
+async function runLiveCatchup(maxBlocks = LIVE_CATCHUP_MAX_BLOCKS): Promise<void> {
+  if (liveCatchupInFlight) {
+    logInfo("Skipping live catchup because one is already running");
+    return;
+  }
+
+  liveCatchupInFlight = true;
+  try {
+    const latestHeight = await getLatestHeight();
+    const checkpoint = Number(getIndexerState("last_processed_height") ?? 0);
+    let fromHeight = checkpoint > 0 ? checkpoint + 1 : latestHeight;
+
+    setIndexerState("latest_seen_height", String(latestHeight));
+    if (latestHeight - fromHeight + 1 > LIVE_CATCHUP_MAX_BLOCKS) {
+      logWarn("Skipping stale live catchup", {
+        checkpoint,
+        requestedFromHeight: fromHeight,
+        latestHeight,
+        lagBlocks: latestHeight - checkpoint,
+        liveCatchupMaxBlocks: LIVE_CATCHUP_MAX_BLOCKS
+      });
+      fromHeight = latestHeight;
+    }
+
+    if (fromHeight <= latestHeight) {
+      await processRange(fromHeight, latestHeight, maxBlocks);
+    }
+    await maybeRebuildCaches();
+  } finally {
+    liveCatchupInFlight = false;
+  }
+}
+
+async function runLiveStartupTasks(): Promise<void> {
+  try {
+    await syncServices();
+  } catch (error) {
+    logError("Service sync failed during live startup", error);
+  }
+
+  try {
+    await runLiveCatchup(500);
+    pruneIndexerData(RETENTION_DAYS);
+  } catch (error) {
+    logError("Initial live catchup failed", error);
+  }
+}
+
 function subscribeToNewBlocks(ws: WebSocket): void {
   ws.send(JSON.stringify({
     jsonrpc: "2.0",
@@ -920,16 +969,24 @@ async function runLive(): Promise<void> {
 
     rpcIndex += 1;
     await sleep(Math.min(30_000, 1_000 * rpcIndex));
-    await runCatchup({ maxBlocks: 500 });
+    void runLiveCatchup(500).catch((error) => logError("Reconnect live catchup failed", error));
   }
 }
 
 export async function runIndexer(options: IndexerOptions = {}): Promise<void> {
   const startedAt = Date.now();
   const jobId = startJobRun("indexer_start", options as Record<string, unknown>);
+  const liveFirst = Boolean(options.live && !options.once && !options.backfillDays && !options.fromHeight && !options.toHeight);
 
   try {
     logInfo("Starting Pocket indexer", options as Record<string, unknown>);
+    if (liveFirst) {
+      void runLiveStartupTasks().catch((error) => logError("Live startup background tasks failed", error));
+      finishJobRun(jobId, "success", startedAt, { durationMs: Date.now() - startedAt, liveFirst: true });
+      await Promise.all([runLive(), runRepairLoop()]);
+      return;
+    }
+
     await syncServices();
     await runCatchup(options);
     pruneIndexerData(RETENTION_DAYS);

@@ -432,7 +432,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             </ul>
           </article>
 
-          <article className="panel section section-visual">
+          <article className="panel section section-visual themed section-theme-demand">
             <div className="section-title-row">
               <div>
                 <h2 className="section-title">Market Shape</h2>

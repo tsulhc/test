@@ -12,6 +12,7 @@ type TimeseriesPanelProps = {
   valueLabel: string;
   formatValue: (value: number) => string;
   emptyText?: string;
+  theme?: "revenue" | "demand" | "integrity" | "privacy";
 };
 
 function buildLinePath(points: TimeseriesPoint[], maxValue: number): string {
@@ -33,7 +34,8 @@ export default function TimeseriesPanel({
   points,
   valueLabel,
   formatValue,
-  emptyText = "Timeseries data is not available yet."
+  emptyText = "Timeseries data is not available yet.",
+  theme
 }: TimeseriesPanelProps) {
   const hasData = points.some((point) => point.value > 0 || (point.secondaryValue ?? 0) > 0);
   const maxValue = Math.max(...points.map((point) => Math.max(point.value, point.secondaryValue ?? 0)), 0);
@@ -44,9 +46,10 @@ export default function TimeseriesPanel({
     ? ((latestPoint.value / previousPoint.value) - 1) * 100
     : 0;
   const linePath = buildLinePath(points, maxValue);
+  const themeClass = theme ? `themed section-theme-${theme}` : "";
 
   return (
-    <section className="panel section timeseries-panel" style={{ position: 'relative' }}>
+    <section className={`panel section timeseries-panel ${themeClass}`} style={{ position: 'relative' }}>
       <div className="section-title-row">
         <div>
           <span className="eyebrow eyebrow-ghost">{eyebrow}</span>
@@ -89,8 +92,8 @@ export default function TimeseriesPanel({
                     className="timeseries-bar" 
                     style={{ 
                       height: `${height}%`,
-                      background: isActive ? 'var(--accent)' : undefined,
-                      boxShadow: isActive ? '0 0 15px rgba(0, 194, 255, 0.4)' : undefined
+                      background: isActive ? 'var(--section-accent, var(--accent))' : undefined,
+                      boxShadow: isActive ? `0 0 15px color-mix(in srgb, var(--section-accent, var(--accent)), transparent 60%)` : undefined
                     }} 
                   />
                   <span style={{ fontWeight: isActive ? 800 : 500, color: isActive ? 'var(--text)' : 'var(--muted)' }}>

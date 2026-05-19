@@ -938,19 +938,18 @@ async function runLive(): Promise<void> {
             setIndexerState("latest_seen_height", String(height));
             if (height > checkpoint) {
               const fromHeight = checkpoint > 0 ? checkpoint + 1 : height;
-              if (height - fromHeight + 1 > LIVE_CATCHUP_MAX_BLOCKS) {
-                logWarn("Skipping stale websocket checkpoint catchup", {
+              const gapBlocks = height - fromHeight;
+              if (gapBlocks > 0) {
+                logWarn("Processing live tip before websocket checkpoint gap", {
                   checkpoint,
                   requestedFromHeight: fromHeight,
                   latestHeight: height,
-                  lagBlocks: height - checkpoint,
+                  gapBlocks,
                   liveCatchupMaxBlocks: LIVE_CATCHUP_MAX_BLOCKS
                 });
-                await processRange(height, height);
-              } else {
-                await processRange(fromHeight, height);
+                void runLiveCatchup(500).catch((error) => logError("Websocket gap catchup failed", error));
               }
-              await maybeRebuildCaches();
+              await processRange(height, height);
             }
           })().catch((error) => logError("Live block processing failed", error, { height }));
         });

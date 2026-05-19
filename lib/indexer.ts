@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 
+import WebSocket from "ws";
+
 import {
   finishJobRun,
   getDashboardCache,

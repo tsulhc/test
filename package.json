@@ -15,11 +15,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "better-sqlite3": "11.8.1",
     "next": "^15.5.18",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.12",

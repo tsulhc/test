@@ -2159,8 +2159,9 @@ code {
   }
 
   .page {
-    padding: 24px 16px 80px;
+    padding: 32px 16px 120px;
     width: 100%;
+    gap: 48px;
   }
 
   .site-footer {
@@ -2171,7 +2172,7 @@ code {
   }
 
   .section, .panel, .provider-head {
-    padding: 24px 20px;
+    padding: 32px 24px;
   }
 
   .explorer-table-wrap, 
@@ -2197,12 +2198,22 @@ code {
 
   .provider-head h1, .explorer-hero h1 {
     font-size: 2.2rem;
+    line-height: 1.1;
+  }
+
+  .hero-main {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+
+  .hero-copy-strong h1 {
+    font-size: 3rem;
   }
 
   .provider-head-top, .provider-head-actions, .section-title-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
+    gap: 20px;
   }
 
   .provider-window-tabs {

@@ -61,14 +61,14 @@ export default async function RewardsPage() {
 
   return (
     <main className="page explorer-page">
-      <section className="panel section explorer-hero" style={{ overflow: 'hidden', position: 'relative' }}>
+      <section className="panel section explorer-hero themed section-theme-revenue" style={{ overflow: 'hidden', position: 'relative' }}>
         <div style={{ 
           position: 'absolute', 
           top: '-10%', 
           right: '-5%', 
           width: '30%', 
           height: '120%', 
-          background: 'radial-gradient(circle, rgba(0, 194, 255, 0.05) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(245, 200, 66, 0.05) 0%, transparent 70%)',
           pointerEvents: 'none'
         }} />
         
@@ -83,7 +83,7 @@ export default async function RewardsPage() {
         <div className="explorer-summary-grid">
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">Cumulative Rewards</span>
-            <strong style={{ color: 'var(--accent)' }}>{formatCompactUpokt(data.totalRevenueUpokt, 1)}</strong>
+            <strong style={{ color: 'var(--yellow-primary)' }}>{formatCompactUpokt(data.totalRevenueUpokt, 1)}</strong>
           </article>
           <article className="explorer-summary-card panel-inset" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
             <span className="hero-highlight-label">USD Equivalent</span>
@@ -109,12 +109,12 @@ export default async function RewardsPage() {
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Top 5 Concentration</span>
-          <span className="kpi-value">{formatPercent(getShare(top5ProviderRewards, data.totalRevenueUpokt), 1)}</span>
+          <span className="kpi-value" style={{ color: 'var(--accent)' }}>{formatPercent(getShare(top5ProviderRewards, data.totalRevenueUpokt), 1)}</span>
           <span className="kpi-foot">Market share of top 5 entities</span>
         </article>
         <article className="panel kpi">
           <span className="kpi-label">Top Service Share</span>
-          <span className="kpi-value" style={{ color: 'var(--accent)' }}>{topService ? formatPercent(getShare(topService.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
+          <span className="kpi-value" style={{ color: 'var(--yellow-primary)' }}>{topService ? formatPercent(getShare(topService.revenueUpokt, data.totalRevenueUpokt), 1) : "n/a"}</span>
           <span className="kpi-foot">{topService?.serviceName ?? "No service activity"}</span>
         </article>
       </section>
@@ -127,10 +127,11 @@ export default async function RewardsPage() {
         valueLabel="rewards"
         formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
         emptyText="Daily reward history is not available yet. Reward concentration tables remain available from the 30d snapshot."
+        theme="revenue"
       />
 
       <section className="section-grid rewards-grid">
-        <article className="panel section">
+        <article className="panel section themed section-theme-integrity">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Reward Methodology</h2>
@@ -157,7 +158,7 @@ export default async function RewardsPage() {
           </div>
         </article>
 
-        <article className="panel section">
+        <article className="panel section themed section-theme-privacy">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Market Concentration</h2>
@@ -187,7 +188,7 @@ export default async function RewardsPage() {
       </section>
 
       <section className="section-grid rewards-grid">
-        <article className="panel section">
+        <article className="panel section themed section-theme-revenue">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Top Earning Chains</h2>

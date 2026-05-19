@@ -523,7 +523,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
       </section>
 
       <section className="section-grid">
-        <article className="panel section">
+        <article className="panel section themed section-theme-privacy">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">Anonymous Domain Distribution</h2>

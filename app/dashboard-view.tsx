@@ -358,10 +358,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           
           <div className="hero-main">
             <div className="hero-copy hero-copy-strong">
-              <span className="eyebrow">Pocket Network Analytics</span>
-              <h1>Public market data for Pocket.</h1>
+              <span className="eyebrow">Network Analytics</span>
+              <h1>Public data for Pocket.</h1>
               <p style={{ fontSize: '1.1rem', maxWidth: '600px' }}>
-                Explore finalized relay demand, service rewards, market concentration, and data freshness from a neutral public analytics surface.
+                Analyze finalized relay demand, rewards, and market trends through a neutral, public-facing lens.
               </p>
 
               <div className="window-tabs" aria-label="time windows">
@@ -374,7 +374,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
                       className={`window-tab${active ? " active" : ""}`}
                       onClick={() => loadWindow(entry, true)}
                     >
-                      {entry === "24h" ? "Real-time" : entry === "7d" ? "Weekly" : "Monthly"} ({entry})
+                      {entry === "24h" ? "Real-time" : entry === "7d" ? "Weekly" : "Monthly"}
                     </button>
                   );
                 })}
@@ -382,14 +382,14 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
               <div className="hero-highlight-grid">
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Market Revenue Pool</span>
+                  <span className="hero-highlight-label">Reward Pool</span>
                   <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatUpokt(toBigInt(data.totalRevenueUpokt), 1)}</strong>
-                  <p>Total public reward pool final settled in {formatRelativeRange(window)}.</p>
+                  <p>Total rewards distributed in the selected period.</p>
                 </div>
                 <div className="hero-highlight">
-                  <span className="hero-highlight-label">Average Domain Benchmark</span>
+                  <span className="hero-highlight-label">Domain Benchmark</span>
                   <strong className="accent-number" style={{ color: 'var(--green)' }}>{formatDecimal(averageRevenuePerProvider, 1)} POKT</strong>
-                  <p>Aggregate benchmark across anonymized active domains.</p>
+                  <p>Average earnings across active domains.</p>
                 </div>
               </div>
             </div>
@@ -397,16 +397,16 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             <aside className="hero-side panel-inset" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
               <div className="section-title-row compact-gap">
                 <div>
-                  <h2 className="section-title">Network Snapshot</h2>
-                  <p className="muted" style={{ fontSize: '0.8rem' }}>Public aggregate market indicators</p>
+                  <h2 className="section-title">Quick Snapshot</h2>
+                  <p className="muted" style={{ fontSize: '0.8rem' }}>Key market indicators</p>
                 </div>
                 <span className="pill">{formatRelativeRange(window)}</span>
               </div>
               <div className="insight-list">
                 <div className="insight-row"><span className="muted">Active Domains</span><strong>{formatInteger(data.activeProviders)}</strong></div>
                 <div className="insight-row"><span className="muted">Active Services</span><strong>{formatInteger(data.activeChains)}</strong></div>
-                <div className="insight-row"><span className="muted">Median Domain Reward</span><strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong></div>
-                <div className="insight-row"><span className="muted">Top 5 Aggregate Share</span><strong>{formatPercent(top5ProviderShare, 1)}</strong></div>
+                <div className="insight-row"><span className="muted">Median Earnings</span><strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong></div>
+                <div className="insight-row"><span className="muted">Top 5 Market Share</span><strong>{formatPercent(top5ProviderShare, 1)}</strong></div>
               </div>
             </aside>
           </div>
@@ -414,20 +414,20 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
         <div className="hero-support-grid">
           <article className="panel narrative-card">
-            <span className="eyebrow eyebrow-ghost">Market Readout</span>
-            <h2>Public signals replacing provider rankings.</h2>
+            <span className="eyebrow eyebrow-ghost">Highlights</span>
+            <h2>Network insights.</h2>
             <ul className="narrative-points">
               <li>
-                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> settled per 1k relays across the selected window.
+                <strong>{formatDecimal(revenuePerThousandRelays, 2)} POKT</strong> earned per 1k relays in this window.
               </li>
               <li>
-                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> equivalent reward value per 1,000 finalized relays.
+                <strong>{formatUsd(revenuePerThousandRelaysUsd, 2)}</strong> estimated value per 1,000 relays.
               </li>
               <li>
-                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> median anonymous domain reward benchmark.
+                <strong>{formatDecimal(medianRevenuePerProvider, 1)} POKT</strong> median benchmark for active domains.
               </li>
               <li>
-                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the largest service by settled rewards.
+                <strong>{topService ? topService.serviceName : "n/a"}</strong> is currently the highest-reward service.
               </li>
             </ul>
           </article>
@@ -436,9 +436,9 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
             <div className="section-title-row">
               <div>
                 <h2 className="section-title">Market Shape</h2>
-                <p className="section-subtitle">Anonymous concentration and service mix signals.</p>
+                <p className="section-subtitle">Concentration and service distribution signals.</p>
               </div>
-              <span className="pill">Concentration</span>
+              <span className="pill">Overview</span>
             </div>
 
             <div className="donut-grid">
@@ -467,58 +467,58 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
 
       <section className="kpi-grid kpi-grid-strong">
         <article className="panel kpi kpi-primary">
-          <span className="kpi-label">Total Network Revenue</span>
+          <span className="kpi-label">Total Revenue</span>
           <span className="kpi-value">{formatUpokt(toBigInt(data.totalRevenueUpokt))}</span>
-          <span className="kpi-foot">{formatUsd(totalRevenueUsd, 0)} at market rate</span>
+          <span className="kpi-foot">{formatUsd(totalRevenueUsd, 0)} est. value</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Relays Finalized</span>
+          <span className="kpi-label">Relays</span>
           <span className="kpi-value">{formatCompactNumber(data.totalRelays)}</span>
-          <span className="kpi-foot">{formatInteger(data.totalRelays)} total relays</span>
+          <span className="kpi-foot">Total finalized volume</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Avg. Reward / Domain</span>
+          <span className="kpi-label">Avg. Earnings</span>
           <span className="kpi-value" style={{ color: 'var(--green)' }}>{formatDecimal(averageRevenuePerProvider, 1)} POKT</span>
-          <span className="kpi-foot">{formatUsd(averageRevenuePerProviderUsd, 0)} anonymous domain benchmark</span>
+          <span className="kpi-foot">Per domain benchmark</span>
         </article>
         <article className="panel kpi">
-          <span className="kpi-label">Unit Revenue (1k Relays)</span>
+          <span className="kpi-label">Unit Revenue</span>
           <span className="kpi-value" style={{ color: 'var(--accent)' }}>{formatDecimal(revenuePerThousandRelays, 2)} POKT</span>
-          <span className="kpi-foot">{formatUsd(revenuePerThousandRelaysUsd, 2)} per unit</span>
+          <span className="kpi-foot">Per 1k relays</span>
         </article>
       </section>
 
       <TimeseriesPanel
-        title="30-Day Market Revenue Trend"
-        subtitle="Daily settled rewards with a 7-day moving average to make network momentum easier to read."
-        eyebrow="Market Trend"
+        title="Revenue Trend"
+        subtitle="Daily rewards with a 7-day moving average."
+        eyebrow="Market"
         points={revenueHistoryPoints}
         valueLabel="revenue"
         formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
-        emptyText="Network daily history is not available yet. The snapshot metrics above remain available."
+        emptyText="Daily history is currently unavailable."
         theme="revenue"
       />
 
       <TimeseriesPanel
-        title="30-Day Relay Demand Trend"
-        subtitle="Daily finalized relay volume, using the same indexed settlement facts as the rewards view."
-        eyebrow="Demand Trend"
+        title="Relay Trend"
+        subtitle="Daily finalized relay volume."
+        eyebrow="Demand"
         points={networkHistory.map((point) => ({ label: point.day, value: point.relays }))}
         valueLabel="relays"
         formatValue={(value) => formatCompactNumber(value)}
-        emptyText="Network relay history is not available yet. The snapshot metrics above remain available."
+        emptyText="Relay history is currently unavailable."
         theme="demand"
       />
 
       <section className="panel section section-opportunity themed section-theme-demand">
         <div className="section-title-row">
           <div>
-              <h2 className="section-title">Service Demand Map</h2>
+              <h2 className="section-title">Service Demand</h2>
               <p className="section-subtitle">
-                Service-level reward, relay, and participation signals. This view does not expose provider identities or provider service mixes.
+                Reward and participation signals by service. identities and private mixes are not exposed.
               </p>
             </div>
-            <span className="pill">Public Services</span>
+            <span className="pill">Public Data</span>
         </div>
 
         <ServiceDemandMap services={data.services} totalRevenue={data.totalRevenueUpokt} />
@@ -528,10 +528,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         <article className="panel section themed section-theme-privacy">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Anonymous Domain Distribution</h2>
-              <p className="section-subtitle">Reward buckets for active domains, aggregated without naming or ranking them.</p>
+              <h2 className="section-title">Domain Distribution</h2>
+              <p className="section-subtitle">Aggregated reward buckets for active domains.</p>
             </div>
-            <span className="pill">Privacy Safe</span>
+            <span className="pill">Privacy</span>
           </div>
           <DomainDistribution data={data} />
         </article>
@@ -539,16 +539,16 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         <article className="panel section themed section-theme-integrity">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">Public Methodology</h2>
-              <p className="section-subtitle">How the public analytics surface stays neutral.</p>
+              <h2 className="section-title">Data Methodology</h2>
+              <p className="section-subtitle">How this public surface stays neutral.</p>
             </div>
-            <span className="pill">PNF Safe</span>
+            <span className="pill">Safety</span>
           </div>
           <div className="insight-list">
-            <div className="insight-row"><span className="muted">Source event</span><strong>EventClaimSettled</strong></div>
-            <div className="insight-row"><span className="muted">Visible detail</span><strong>Network and service aggregates</strong></div>
-            <div className="insight-row"><span className="muted">Hidden detail</span><strong>No named provider surfaces</strong></div>
-            <div className="insight-row"><span className="muted">Request path</span><strong>SQLite snapshots only</strong></div>
+            <div className="insight-row"><span className="muted">Source</span><strong>EventClaimSettled</strong></div>
+            <div className="insight-row"><span className="muted">Visibility</span><strong>Network aggregates only</strong></div>
+            <div className="insight-row"><span className="muted">Privacy</span><strong>No named provider data</strong></div>
+            <div className="insight-row"><span className="muted">Access</span><strong>Public SQLite snapshots</strong></div>
           </div>
         </article>
       </section>
@@ -557,10 +557,10 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         <article className="panel section themed section-theme-revenue">
           <div className="section-title-row">
             <div>
-              <h2 className="section-title">High-Demand Services</h2>
-              <p className="section-subtitle">Chains with the strongest revenue pools.</p>
+              <h2 className="section-title">Top Services</h2>
+              <p className="section-subtitle">Chains with the highest reward pools.</p>
             </div>
-            <span className="pill">Demand</span>
+            <span className="pill">Rewards</span>
           </div>
 
           <div className="service-list">
@@ -575,11 +575,11 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
                     </div>
                     <div className="right">
                       <strong className="accent-number" style={{ fontSize: '1.1rem' }}>{formatUpokt(toBigInt(service.revenueUpokt), 1)}</strong>
-                       <div className="muted" style={{ fontSize: '0.85rem' }}>{formatInteger(service.relays)} total relays</div>
+                       <div className="muted" style={{ fontSize: '0.85rem' }}>{formatInteger(service.relays)} relays</div>
                      </div>
                    </div>
                    <div className="provider-row-metrics">
-                     <span>{formatInteger(service.providerCount)} domains active</span>
+                     <span>{formatInteger(service.providerCount)} domains</span>
                      <span style={{ color: 'var(--green)' }}>{formatDecimal(revenuePerProvider, 1)} POKT / domain</span>
                    </div>
                  </div>
@@ -592,17 +592,17 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
       <section className="panel section hero-meta themed section-theme-integrity">
         <div className="section-title-row compact-gap">
           <div>
-            <h2 className="section-title">Network Integrity</h2>
-            <p className="muted" style={{ fontSize: '0.8rem' }}>Runtime diagnostics and source validation</p>
+            <h2 className="section-title">System Status</h2>
+            <p className="muted" style={{ fontSize: '0.8rem' }}>Data integrity and sync diagnostics</p>
           </div>
-          <span className="pill">System Status</span>
+          <span className="pill">Health</span>
         </div>
         
         <div className="insight-list">
           <div className="insight-row">
-            <span className="muted">Primary Data Source</span>
+            <span className="muted">Data Source</span>
             <strong style={{ color: data.dataSource === "poktscan" ? 'var(--green)' : 'var(--orange)' }}>
-              {data.dataSource === "poktscan" ? "Legacy Poktscan snapshot" : "Indexed RPC snapshot"}
+              {data.dataSource === "poktscan" ? "Legacy Verified" : "Live RPC Sync"}
             </strong>
           </div>
           <div className="insight-row">
@@ -611,26 +611,22 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
           </div>
           {indexerLag != null && (
             <div className="insight-row">
-              <span className="muted">Indexer Latency</span>
+              <span className="muted">Indexer Lag</span>
               <strong style={{ color: indexerLag > 10 ? 'var(--red)' : 'var(--green)' }}>{formatInteger(indexerLag)} blocks</strong>
             </div>
           )}
           <div className="insight-row">
-            <span className="muted">Settlement Scanned</span>
-            <strong>{formatInteger(data.scannedSettlementHeights)} heights</strong>
-          </div>
-          <div className="insight-row">
-            <span className="muted">Market Liquidity</span>
+            <span className="muted">Market Price</span>
             <strong className="accent-number" style={{ color: 'var(--accent)' }}>{formatUsd(data.poktPriceUsd, 4)} POKT/USD</strong>
           </div>
           <div className="insight-row">
-            <span className="muted">Last Intelligence Refresh</span>
+            <span className="muted">Last Updated</span>
             <strong>{new Date(data.generatedAt).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>
           </div>
           {isPending && (
             <div className="insight-row">
-              <span className="muted">Sync Status</span>
-              <strong style={{ color: 'var(--accent)' }}>Refreshing data stream...</strong>
+              <span className="muted">Status</span>
+              <strong style={{ color: 'var(--accent)' }}>Updating...</strong>
             </div>
           )}
         </div>

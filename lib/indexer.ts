@@ -616,7 +616,7 @@ function getRepairCandidateHeights(fromHeight: number, toHeight: number, limit: 
   const failed: number[] = [];
   const now = Date.now();
 
-  for (let height = fromHeight; height <= toHeight && missing.length + failed.length < limit; height += 1) {
+  for (let height = toHeight; height >= fromHeight && missing.length + failed.length < limit; height -= 1) {
     const row = byHeight.get(height);
     if (!row) {
       missing.push(height);
@@ -641,7 +641,7 @@ async function processRepairHeights(heights: number[], concurrency: number, sour
   let failed = 0;
   let events = 0;
 
-  for (const result of results.sort((a, b) => a.height - b.height)) {
+  for (const result of results.sort((a, b) => b.height - a.height)) {
     if (result.facts) {
       saveIndexedBlock(result.height, result.facts);
       repaired += 1;
@@ -672,7 +672,7 @@ async function runRepairLoop(): Promise<void> {
       const latestHeight = await getLatestHeight();
       const retentionStartHeight = estimateBackfillStart(latestHeight, RETENTION_DAYS);
       const { missing, failed } = getRepairCandidateHeights(retentionStartHeight, latestHeight, REPAIR_BATCH_SIZE);
-      const candidateHeights = [...missing, ...failed].sort((a, b) => a - b).slice(0, REPAIR_BATCH_SIZE);
+      const candidateHeights = [...missing, ...failed].sort((a, b) => b - a).slice(0, REPAIR_BATCH_SIZE);
 
       if (candidateHeights.length > 0) {
         const result = await processRepairHeights(candidateHeights, REPAIR_CONCURRENCY, "repair-loop");
@@ -742,14 +742,16 @@ function formatDuration(ms: number): string {
 }
 
 async function processBackfillRange(fromHeight: number, toHeight: number, maxBlocks?: number): Promise<void> {
-  const targetHeight = maxBlocks ? Math.min(toHeight, fromHeight + maxBlocks - 1) : toHeight;
-  const totalBlocks = Math.max(0, targetHeight - fromHeight + 1);
+  const targetHeight = toHeight;
+  const minimumHeight = maxBlocks ? Math.max(fromHeight, toHeight - maxBlocks + 1) : fromHeight;
+  const totalBlocks = Math.max(0, targetHeight - minimumHeight + 1);
   const startedAt = Date.now();
   let processedBlocks = 0;
   let indexedEvents = 0;
 
   logInfo("Starting concurrent backfill range", {
     fromHeight,
+    minimumHeight,
     targetHeight,
     totalBlocks,
     concurrency: BACKFILL_CONCURRENCY,
@@ -760,13 +762,13 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
     blockRetries: BLOCK_RETRIES
   });
 
-  for (let batchStart = fromHeight; batchStart <= targetHeight; batchStart += BACKFILL_BATCH_SIZE) {
-    const batchEnd = Math.min(targetHeight, batchStart + BACKFILL_BATCH_SIZE - 1);
-    const heights = Array.from({ length: batchEnd - batchStart + 1 }, (_, index) => batchStart + index);
+  for (let batchEnd = targetHeight; batchEnd >= minimumHeight; batchEnd -= BACKFILL_BATCH_SIZE) {
+    const batchStart = Math.max(minimumHeight, batchEnd - BACKFILL_BATCH_SIZE + 1);
+    const heights = Array.from({ length: batchEnd - batchStart + 1 }, (_, index) => batchEnd - index);
     const batchResults = await mapConcurrent(heights, BACKFILL_CONCURRENCY, (height) => fetchHeightResult(height, BACKFILL_RPC_URLS));
     let failedBlocks = 0;
 
-    for (const result of batchResults.sort((a, b) => a.height - b.height)) {
+    for (const result of batchResults.sort((a, b) => b.height - a.height)) {
       if (result.facts) {
         saveIndexedBlock(result.height, result.facts);
         indexedEvents += result.facts.length;
@@ -785,8 +787,9 @@ async function processBackfillRange(fromHeight: number, toHeight: number, maxBlo
     const etaMs = blocksPerMinute === 0 ? 0 : (remainingBlocks / blocksPerMinute) * 60_000;
 
     logInfo("Concurrent backfill progress", {
-      height: batchEnd,
+      height: batchStart,
       targetHeight,
+      minimumHeight,
       processedBlocks,
       totalBlocks,
       indexedEvents,

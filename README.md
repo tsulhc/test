@@ -142,7 +142,7 @@ npm run indexer:backfill
 tsx scripts/indexer.ts --from-height 123456 --to-height 124000 --once
 ```
 
-Manual backfill uses concurrent RPC reads and writes checkpoints in height order. For debug backfills, tune throughput conservatively against your RPC pool:
+Manual backfill uses concurrent RPC reads from newest height to oldest height, so recent data is prioritized before older historical gaps. For debug backfills, tune throughput conservatively against your RPC pool:
 
 ```bash
 POCKET_INDEXER_BACKFILL_CONCURRENCY=8 POCKET_INDEXER_BACKFILL_BATCH_SIZE=500 npm run indexer:backfill

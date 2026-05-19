@@ -508,7 +508,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         emptyText="Network relay history is not available yet. The snapshot metrics above remain available."
       />
 
-      <section className="panel section section-opportunity">
+      <section className="panel section section-opportunity themed section-theme-demand">
         <div className="section-title-row">
           <div>
               <h2 className="section-title">Service Demand Map</h2>

@@ -552,7 +552,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
       </section>
 
       <section className="section-grid">
-        <article className="panel section">
+        <article className="panel section themed section-theme-revenue">
           <div className="section-title-row">
             <div>
               <h2 className="section-title">High-Demand Services</h2>

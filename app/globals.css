@@ -270,6 +270,44 @@ code {
   padding: 40px;
 }
 
+/* Section Themes */
+.section-theme-revenue {
+  --section-accent: var(--yellow-primary);
+  --section-bg-glow: radial-gradient(circle at top right, rgba(245, 200, 66, 0.05), transparent 60%);
+}
+
+.section-theme-demand {
+  --section-accent: var(--cyan-accent);
+  --section-bg-glow: radial-gradient(circle at top right, rgba(0, 194, 255, 0.05), transparent 60%);
+}
+
+.section-theme-integrity {
+  --section-accent: var(--green);
+  --section-bg-glow: radial-gradient(circle at top right, rgba(0, 209, 160, 0.05), transparent 60%);
+}
+
+.section-theme-privacy {
+  --section-accent: #A78BFA; /* Soft Purple/Violet for privacy */
+  --section-bg-glow: radial-gradient(circle at top right, rgba(167, 139, 250, 0.05), transparent 60%);
+}
+
+.section.themed {
+  position: relative;
+  overflow: hidden;
+  background-image: var(--section-bg-glow);
+  border-left: 3px solid var(--section-accent);
+}
+
+.section.themed .section-title {
+  color: var(--section-accent);
+}
+
+.section.themed .pill {
+  background: color-mix(in srgb, var(--section-accent), transparent 90%);
+  border-color: color-mix(in srgb, var(--section-accent), transparent 80%);
+  color: var(--section-accent);
+}
+
 .hero-copy-strong h1 {
   margin: 20px 0 28px;
   font-size: clamp(2.6rem, 7vw, 4.8rem);

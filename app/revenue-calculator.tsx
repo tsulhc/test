@@ -78,14 +78,14 @@ export default function RevenueCalculator({ poktPriceUsd, services }: RevenueCal
   }
 
   return (
-    <section className="panel section calculator-section" style={{ position: 'relative', overflow: 'hidden' }}>
+    <section className="panel section calculator-section themed section-theme-revenue" style={{ position: 'relative', overflow: 'hidden' }}>
       <div style={{ 
         position: 'absolute', 
         bottom: '-10%', 
         left: '-5%', 
         width: '30%', 
         height: '40%', 
-        background: 'radial-gradient(circle, rgba(0, 133, 255, 0.03) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(245, 200, 66, 0.03) 0%, transparent 70%)',
         pointerEvents: 'none'
       }} />
 

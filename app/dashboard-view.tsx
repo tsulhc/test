@@ -496,6 +496,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         valueLabel="revenue"
         formatValue={(value) => `${formatDecimal(value, 1)} POKT`}
         emptyText="Network daily history is not available yet. The snapshot metrics above remain available."
+        theme="revenue"
       />
 
       <TimeseriesPanel
@@ -506,6 +507,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         valueLabel="relays"
         formatValue={(value) => formatCompactNumber(value)}
         emptyText="Network relay history is not available yet. The snapshot metrics above remain available."
+        theme="demand"
       />
 
       <section className="panel section section-opportunity themed section-theme-demand">

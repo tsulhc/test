@@ -587,7 +587,7 @@ export default function DashboardView({ initialWindow, dataByWindow, networkHist
         </article>
       </section>
 
-      <section className="panel section hero-meta">
+      <section className="panel section hero-meta themed section-theme-integrity">
         <div className="section-title-row compact-gap">
           <div>
             <h2 className="section-title">Network Integrity</h2>
